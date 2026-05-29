@@ -6,6 +6,7 @@ import { Pipeline } from "@/types";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Spinner } from "@/components/ui/Spinner";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 
 function StatusBadge({ status }: { status?: string }) {
   if (!status) return <Badge>—</Badge>;
@@ -20,6 +21,7 @@ function StatusBadge({ status }: { status?: string }) {
 export default function PipelinesPage() {
   const [pipelines, setPipelines] = useState<Pipeline[]>([]);
   const [loading, setLoading] = useState(true);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
 
   useEffect(() => {
     fetch("/api/pipelines")
@@ -92,11 +94,14 @@ export default function PipelinesPage() {
                   <Link href={`/pipelines/${p.id}`}>
                     <Button size="sm" variant="ghost" className="text-[10px]">Edit</Button>
                   </Link>
+                  <Link href={`/pipelines/${p.id}`}>
+                    <Button size="sm" variant="ghost" className="text-[10px] text-accent-primary">Run</Button>
+                  </Link>
                   <Button
                     size="sm"
                     variant="ghost"
                     className="text-[10px] hover:text-error"
-                    onClick={() => handleDelete(p.id)}
+                    onClick={() => setDeleteId(p.id)}
                   >
                     Delete
                   </Button>
@@ -106,6 +111,16 @@ export default function PipelinesPage() {
           </div>
         )}
       </div>
+
+      <ConfirmDialog
+        open={deleteId !== null}
+        title="Delete Pipeline"
+        message="This action cannot be undone. The pipeline and all its configuration will be permanently deleted."
+        confirmLabel="Delete"
+        variant="danger"
+        onConfirm={() => deleteId && handleDelete(deleteId)}
+        onCancel={() => setDeleteId(null)}
+      />
     </div>
   );
 }

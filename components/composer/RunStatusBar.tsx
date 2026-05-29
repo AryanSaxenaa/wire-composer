@@ -9,6 +9,7 @@ export function RunStatusBar() {
   const runStatus = useComposerStore((s) => s.runStatus);
   const pipeline = useComposerStore((s) => s.pipeline);
   const runContext = useComposerStore((s) => s.runContext);
+  const resetRun = useComposerStore((s) => s.resetRun);
 
   if (runStatus === "idle" || !pipeline) return null;
 
@@ -52,8 +53,8 @@ export function RunStatusBar() {
         )}
         <Button
           size="sm"
-          variant="ghost"
-          onClick={() => useComposerStore.getState().resetRun()}
+          variant={runStatus === "running" ? "danger" : "ghost"}
+          onClick={resetRun}
         >
           {runStatus === "running" ? "Cancel" : "Clear"}
         </Button>
@@ -61,3 +62,4 @@ export function RunStatusBar() {
     </div>
   );
 }
+

@@ -1,6 +1,14 @@
 import { create } from "zustand";
 import { Pipeline, PipelineNode, PipelineEdge, RunContext, WireAction } from "@/types";
 
+type ToastType = "success" | "error" | "info";
+
+interface ToastData {
+  id: string;
+  type: ToastType;
+  message: string;
+}
+
 interface ComposerStore {
   pipeline: Pipeline | null;
   setPipeline: (p: Pipeline) => void;
@@ -33,6 +41,10 @@ interface ComposerStore {
 
   availableActions: WireAction[];
   setAvailableActions: (a: WireAction[]) => void;
+
+  toasts: ToastData[];
+  addToast: (type: ToastType, message: string) => void;
+  removeToast: (id: string) => void;
 
   parseNLPrompt: (prompt: string, actions: WireAction[]) => Promise<void>;
   resetRun: () => void;
@@ -119,6 +131,16 @@ export const useComposerStore = create<ComposerStore>((set, get) => ({
   availableActions: [],
   setAvailableActions: (a) => set({ availableActions: a }),
 
+  toasts: [],
+  addToast: (type, message) => {
+    const id = crypto.randomUUID();
+    set((s) => ({ toasts: [...s.toasts, { id, type, message }] }));
+    setTimeout(() => {
+      set((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) }));
+    }, 3500);
+  },
+  removeToast: (id) => set((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) })),
+
   parseNLPrompt: async (prompt, actions) => {
     set({ parseStatus: "loading", parseError: null });
     try {
@@ -165,9 +187,28 @@ export const useComposerStore = create<ComposerStore>((set, get) => ({
     }
   },
 
-  resetRun: () =>
-    set({
-      runStatus: "idle",
-      runContext: null,
-    }),
+  resetRun: () => {
+    const p = get().pipeline;
+    if (p) {
+      set({
+        pipeline: {
+          ...p,
+          nodes: p.nodes.map((n) => ({
+            ...n,
+            status: "idle" as const,
+            output: undefined,
+            error: undefined,
+          })),
+          edges: p.edges.map((e) => ({ ...e, animated: false })),
+        },
+        runStatus: "idle",
+        runContext: null,
+      });
+    } else {
+      set({
+        runStatus: "idle",
+        runContext: null,
+      });
+    }
+  },
 }));

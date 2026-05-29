@@ -4,11 +4,6 @@ import { ACTION_REGISTRY } from "@/lib/action-registry";
 import { PipelineNode, PipelineEdge, WireAction } from "@/types";
 import { nanoid } from "nanoid";
 
-const TOP_LEVEL_DEPTH_KEYS = [
-  "config", "credentials", "status", "output", "error",
-  "id", "actionId", "label", "platform", "type",
-];
-
 function autoLayout(nodes: PipelineNode[], edges: PipelineEdge[]): PipelineNode[] {
   const depths = new Map<string, number>();
   const children = new Map<string, string[]>();
@@ -36,8 +31,9 @@ function autoLayout(nodes: PipelineNode[], edges: PipelineEdge[]): PipelineNode[
       const kidDepth = depths.get(kidId);
       if (kidDepth === undefined || kidDepth === -1 || kidDepth < currentDepth + 1) {
         depths.set(kidId, currentDepth + 1);
+        const kidNode = nodes.find((n) => n.id === kidId);
+        if (kidNode) queue.push(kidNode);
       }
-      queue.push(nodes.find((n) => n.id === kidId)!);
     });
   }
 
@@ -54,10 +50,10 @@ function autoLayout(nodes: PipelineNode[], edges: PipelineEdge[]): PipelineNode[
     byDepth.get(d)!.push(n);
   });
 
-  const SPACING_X = 300;
+  const SPACING_X = 280;
   const SPACING_Y = 160;
   const BASE_X = 100;
-  const BASE_Y = 100;
+  const BASE_Y = 200;
 
   const result: PipelineNode[] = [];
   const sortedDepths = [...byDepth.keys()].sort((a, b) => a - b);

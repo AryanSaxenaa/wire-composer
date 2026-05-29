@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/Input";
 import { Badge } from "@/components/ui/Badge";
 import { CodeBlock } from "@/components/ui/CodeBlock";
 import { Button } from "@/components/ui/Button";
+import { useCredentials } from "@/lib/credentials-context";
 import clsx from "clsx";
 
 export function NodeInspector() {
@@ -15,6 +16,7 @@ export function NodeInspector() {
   const setInspectorOpen = useComposerStore((s) => s.setInspectorOpen);
   const pipeline = useComposerStore((s) => s.pipeline);
   const updateNode = useComposerStore((s) => s.updateNode);
+  const { setNodeCredentials, getAllCredentials } = useCredentials();
 
   const node = useMemo(
     () => pipeline?.nodes.find((n) => n.id === selectedNodeId) || null,
@@ -26,8 +28,15 @@ export function NodeInspector() {
     return getActionById(node.actionId);
   }, [node]);
 
-  const [credentialUsername, setCredentialUsername] = useState("");
-  const [credentialPassword, setCredentialPassword] = useState("");
+  const savedCreds = useMemo(
+    () => (node ? getAllCredentials()[node.id] : null),
+    [node, getAllCredentials]
+  );
+
+  const [credentialUsername, setCredentialUsername] = useState(savedCreds?.username || "");
+  const [credentialPassword, setCredentialPassword] = useState(savedCreds?.password || "");
+  const [credentialSession, setCredentialSession] = useState(savedCreds?.sessionCookie || "");
+  const [showSession, setShowSession] = useState(false);
 
   const handleConfigChange = useCallback(
     (key: string, value: string) => {
@@ -39,14 +48,12 @@ export function NodeInspector() {
 
   const handleSaveCredentials = useCallback(() => {
     if (!node) return;
-    updateNode(node.id, {
-      credentials: {
-        ...node.credentials,
-        username: credentialUsername,
-        password: credentialPassword,
-      },
+    setNodeCredentials(node.id, {
+      username: credentialUsername,
+      password: credentialPassword,
+      ...(showSession && credentialSession ? { sessionCookie: credentialSession } : {}),
     });
-  }, [node, updateNode, credentialUsername, credentialPassword]);
+  }, [node, setNodeCredentials, credentialUsername, credentialPassword, credentialSession, showSession]);
 
   if (!inspectorOpen || !node) {
     return (
@@ -102,9 +109,12 @@ export function NodeInspector() {
             {action?.inputFields.map((field) => {
               const edge = pipeline?.edges.find(
                 (e) =>
-                  e.target === node.id && e.targetHandle === field.key
+                  e.target === node.id && e.dataMapping.some((m) => m.toField === field.key)
               );
               const isMapped = !!edge;
+              const sourceNode = isMapped
+                ? pipeline?.nodes.find((n) => n.id === edge.source)
+                : null;
 
               return (
                 <div key={field.key}>
@@ -115,13 +125,13 @@ export function NodeInspector() {
                     </label>
                     {isMapped && (
                       <span className="text-[9px] text-success font-mono">
-                        ← mapped
+                        ← {sourceNode?.label || "upstream"}
                       </span>
                     )}
                   </div>
                   {isMapped ? (
                     <div className="h-9 px-3 rounded-md bg-bg-base border border-success/20 flex items-center text-xs text-success font-mono">
-                      Data mapped from upstream
+                      Data mapped from &ldquo;{sourceNode?.label || "upstream"}&rdquo;
                     </div>
                   ) : (
                     <Input
@@ -164,6 +174,25 @@ export function NodeInspector() {
                 value={credentialPassword}
                 onChange={(e) => setCredentialPassword(e.target.value)}
               />
+              <div>
+                <button
+                  onClick={() => setShowSession(!showSession)}
+                  className="text-[10px] text-text-muted hover:text-text-secondary font-mono"
+                >
+                  {showSession ? "▾ Use saved session" : "▸ Use saved session"}
+                </button>
+                {showSession && (
+                  <div className="mt-2">
+                    <Input
+                      id="cred-session"
+                      label="Session Cookie"
+                      placeholder="session=..."
+                      value={credentialSession}
+                      onChange={(e) => setCredentialSession(e.target.value)}
+                    />
+                  </div>
+                )}
+              </div>
               <Button size="sm" variant="secondary" onClick={handleSaveCredentials}>
                 Save Credentials
               </Button>

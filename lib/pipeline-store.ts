@@ -27,33 +27,21 @@ export async function getPipeline(id: string): Promise<Pipeline | null> {
 }
 
 export async function createPipeline(pipeline: Pipeline): Promise<Pipeline> {
-  try {
-    await kv.set(
-      `${KV_PREFIX}:${getUserKey()}:${pipeline.id}`,
-      JSON.parse(JSON.stringify(pipeline))
-    );
-  } catch {
-    // In-memory fallback handled via file
-  }
+  await kv.set(
+    `${KV_PREFIX}:${getUserKey()}:${pipeline.id}`,
+    JSON.parse(JSON.stringify(pipeline))
+  );
   return pipeline;
 }
 
 export async function updatePipeline(id: string, pipeline: Pipeline): Promise<Pipeline> {
-  try {
-    await kv.set(
-      `${KV_PREFIX}:${getUserKey()}:${id}`,
-      JSON.parse(JSON.stringify(pipeline))
-    );
-  } catch {
-    // Fallback
-  }
+  await kv.set(
+    `${KV_PREFIX}:${getUserKey()}:${id}`,
+    JSON.parse(JSON.stringify(pipeline))
+  );
   return pipeline;
 }
 
 export async function deletePipeline(id: string): Promise<void> {
-  try {
-    await kv.del(`${KV_PREFIX}:${getUserKey()}:${id}`);
-  } catch {
-    // Fallback
-  }
+  await kv.del(`${KV_PREFIX}:${getUserKey()}:${id}`);
 }

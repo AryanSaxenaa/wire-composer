@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { ComposerLayout } from "@/components/composer/ComposerLayout";
 import { useComposerStore } from "@/lib/store";
-import { ActionField, Pipeline } from "@/types";
 import { Spinner } from "@/components/ui/Spinner";
 import { ACTION_REGISTRY } from "@/lib/action-registry";
 
