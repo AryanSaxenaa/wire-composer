@@ -1,6 +1,3 @@
-AGENTS.md
-CLAUDE.md
-
 # Environment variables and secrets
 .env
 .env.*
@@ -26,7 +23,7 @@ opencode/
 .command-code/
 .commad-code/
 
-# Other local AI / editor assistant config (optional safety net)
+# Other local AI / editor assistant config
 .aider/
 .continue/
 .windsurf/
@@ -44,6 +41,9 @@ venv/
 data/uploads/
 data/audits/
 data/**/fulltext/
+
+# Next.js
+.next/
 
 # Node
 node_modules/
