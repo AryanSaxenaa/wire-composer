@@ -12,6 +12,7 @@
     "@vercel/kv": "^2",
     "clsx": "^2",
     "cron-parser": "^4.9.0",
+    "lucide-react": "^1.17.0",
     "nanoid": "^5",
     "next": "16.2.6",
     "openai": "^4",

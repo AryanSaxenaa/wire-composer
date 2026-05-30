@@ -49,7 +49,7 @@ export function PipelineViewClient() {
     return (
       <div className="composer-app h-screen flex items-center justify-center gap-3">
         <Spinner size="sm" />
-        <span className="text-sm text-[#8888aa]">Loading pipeline...</span>
+        <span className="text-sm text-[#475569]">Loading pipeline...</span>
       </div>
     );
   }

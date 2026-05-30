@@ -5,17 +5,21 @@ import { usePipelineParser } from "@/hooks/usePipelineParser";
 import { Spinner } from "@/components/ui/Spinner";
 import { ExamplePipelines } from "@/components/composer/ExamplePipelines";
 import { DemoPipelines } from "@/components/composer/DemoPipelines";
+import { useComposerStore } from "@/lib/store";
 
 const PLACEHOLDER_PROMPTS = [
-  "Every morning, check my competitor's pricing page, compare it to my Shopify store, and post a Slack message if anything changed.",
-  "Monitor Glassdoor reviews and post summaries to Slack",
-  "Search LinkedIn for prospects and export to CSV",
+  "Track an Amazon ASIN price and fetch reviews when it drops below a threshold.",
+  "Search GitHub for developers in the US with 1000+ followers, then list their repos.",
+  "Monitor r/programming hot posts and extract the top thread title.",
 ];
 
 export function NLInputPanel() {
   const [prompt, setPrompt] = useState(PLACEHOLDER_PROMPTS[0]);
   const [followUp, setFollowUp] = useState("");
   const { parse, status, error, clarification } = usePipelineParser();
+  const pipeline = useComposerStore((s) => s.pipeline);
+  const parseReasoning = useComposerStore((s) => s.parseReasoning);
+  const openConfirm = useComposerStore((s) => s.openConfirm);
 
   const handleParse = useCallback(() => {
     const text = followUp.trim() || prompt.trim();
@@ -26,10 +30,23 @@ export function NLInputPanel() {
 
   const handleExample = useCallback(
     (example: string) => {
-      setPrompt(example);
-      parse(example);
+      const runParse = () => {
+        setPrompt(example);
+        parse(example);
+      };
+      if (pipeline && pipeline.nodes.length > 0) {
+        openConfirm({
+          title: "Replace pipeline?",
+          message: "Parsing this example will replace your current canvas.",
+          confirmLabel: "Replace",
+          variant: "danger",
+          onConfirm: runParse,
+        });
+        return;
+      }
+      runParse();
     },
-    [parse]
+    [parse, pipeline, openConfirm]
   );
 
   return (
@@ -67,6 +84,15 @@ export function NLInputPanel() {
 
           {error && <div className="cmp-alert cmp-alert--error">{error}</div>}
 
+          {status === "success" && parseReasoning && (
+            <details className="cmp-parse-reasoning mt-3">
+              <summary className="text-sm font-medium cursor-pointer">
+                Why this pipeline?
+              </summary>
+              <p className="mt-2 text-sm text-[var(--cmp-muted)]">{parseReasoning}</p>
+            </details>
+          )}
+
           {clarification.needed && clarification.question && (
             <div className="cmp-alert cmp-alert--warn">
               <strong>Clarification needed</strong>
@@ -86,7 +112,7 @@ export function NLInputPanel() {
           )}
         </div>
 
-        <ExamplePipelines onSelect={handleExample} />
+        <ExamplePipelines onSelect={handleExample} disabled={status === "loading"} />
         <DemoPipelines />
       </div>
     </aside>

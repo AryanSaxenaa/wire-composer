@@ -6,6 +6,7 @@ import { NodeInspector } from "@/components/composer/NodeInspector";
 import { TopBar } from "@/components/layout/TopBar";
 import { RunStatusBar } from "@/components/composer/RunStatusBar";
 import { CredentialsProvider } from "@/lib/credentials-context";
+import { ComposerConfirmHost } from "@/components/composer/ComposerConfirmHost";
 import { useComposerStore } from "@/lib/store";
 
 export function ComposerLayout() {
@@ -15,6 +16,7 @@ export function ComposerLayout() {
   return (
     <CredentialsProvider>
       <div className="composer-app">
+        <ComposerConfirmHost />
         <TopBar />
         <div className="cmp-body">
           <NLInputPanel />

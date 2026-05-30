@@ -13,10 +13,15 @@ export function getServerCredentialsForNode(
   const password = process.env[`${prefix}_PASSWORD`] ?? process.env[`${prefix}_TOKEN`];
   const sessionCookie = process.env[`${prefix}_SESSION`];
 
+  const credentialId =
+    process.env[`${prefix}_CREDENTIAL_ID`] ?? process.env.ANAKIN_CREDENTIAL_ID;
+
   const creds: Record<string, string> = {};
+  if (credentialId) creds.credential_id = credentialId;
   if (username) creds.username = username;
   if (password) creds.password = password;
   if (sessionCookie) creds.sessionCookie = sessionCookie;
+  creds.platform = platform;
 
   if (platform === "slack" && process.env.SLACK_BOT_TOKEN) {
     creds.password = process.env.SLACK_BOT_TOKEN;

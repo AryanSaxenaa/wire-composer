@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { useComposerStore } from "@/lib/store";
-import { ACTION_REGISTRY } from "@/lib/action-registry";
+import { BUILTIN_ACTIONS, registerAnakinActions } from "@/lib/action-registry";
 
 export function useWireActions() {
   const setAvailableActions = useComposerStore((s) => s.setAvailableActions);
@@ -11,9 +11,13 @@ export function useWireActions() {
     fetch("/api/wire/actions")
       .then((r) => r.json())
       .then((data) => {
-        if (data.actions?.length) setAvailableActions(data.actions);
-        else setAvailableActions(ACTION_REGISTRY);
+        if (data.actions?.length) {
+          registerAnakinActions(
+            data.actions.filter((a: { id: string }) => !a.id.startsWith("wire."))
+          );
+          setAvailableActions(data.actions);
+        } else setAvailableActions(BUILTIN_ACTIONS);
       })
-      .catch(() => setAvailableActions(ACTION_REGISTRY));
+      .catch(() => setAvailableActions(BUILTIN_ACTIONS));
   }, [setAvailableActions]);
 }

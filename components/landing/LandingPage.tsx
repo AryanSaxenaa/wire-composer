@@ -7,18 +7,8 @@ import { LandingLogo } from "./LandingLogo";
 const NAV_LINKS = [
   { href: "#features", label: "Features" },
   { href: "#how-it-works", label: "How it works" },
-  { href: "#pricing", label: "Pricing" },
-  { href: "#docs", label: "Docs" },
-  { href: "#blog", label: "Blog" },
-] as const;
-
-const TRUSTED_LOGOS = [
-  "Notion",
-  "OpenAI",
-  "Vercel",
-  "Supabase",
-  "Stripe",
-  "Clerk",
+  { href: "/composer", label: "Composer" },
+  { href: "/pipelines", label: "Library" },
 ] as const;
 
 const STEPS = [
@@ -204,46 +194,41 @@ const FOOTER_COLUMNS = [
 export function LandingPage() {
   return (
     <div className="lp">
-      <header className="lp-header">
-        <div className="lp-container lp-header-row">
-          <Link href="/" className="lp-brand">
-            <LandingLogo />
-            <span>Wire Composer</span>
-          </Link>
+      <section className="lp-hero">
+        <div className="lp-hero-pattern" aria-hidden />
+        <div className="lp-hero-glow" aria-hidden />
+        <div className="lp-hero-fade" aria-hidden />
 
-          <nav className="lp-nav" aria-label="Main">
-            {NAV_LINKS.map((item) => (
-              <Link key={item.href} href={item.href} className="lp-nav-item">
-                {item.label}
+        <header className="lp-header">
+          <div className="lp-container lp-header-row">
+            <Link href="/" className="lp-brand">
+              <LandingLogo />
+              <span>Wire Composer</span>
+            </Link>
+
+            <nav className="lp-nav" aria-label="Main">
+              {NAV_LINKS.map((item) => (
+                <Link key={item.href} href={item.href} className="lp-nav-item">
+                  {item.label}
+                </Link>
+              ))}
+            </nav>
+
+            <div className="lp-header-actions">
+              <Link href="/composer" className="lp-link-signin">
+                Log in
               </Link>
-            ))}
-          </nav>
-
-          <div className="lp-header-actions">
-            <Link href="/composer" className="lp-link-signin">
-              Log in
-            </Link>
-            <Link href="/composer" className="lp-btn lp-btn--sm">
-              Get Started →
-            </Link>
+              <Link href="/composer" className="lp-btn lp-btn--sm">
+                Get Started →
+              </Link>
+            </div>
           </div>
-        </div>
-      </header>
+        </header>
 
-      <LandingHero />
-
-      <section className="lp-trusted" aria-label="Trusted by">
-        <div className="lp-container">
-          <p className="lp-trusted-label">Loved by builders at</p>
-          <ul className="lp-trusted-logos">
-            {TRUSTED_LOGOS.map((name) => (
-              <li key={name}>{name}</li>
-            ))}
-          </ul>
-        </div>
+        <LandingHero />
       </section>
 
-      <section id="how-it-works" className="lp-steps-section" aria-labelledby="lp-steps-title">
+      <section id="how-it-works" className="lp-steps-section lp-grid-section" aria-labelledby="lp-steps-title">
         <div className="lp-container lp-section-center">
           <p className="lp-section-label">HOW IT WORKS</p>
           <h2 id="lp-steps-title" className="lp-section-title">
@@ -276,9 +261,9 @@ export function LandingPage() {
           <div className="lp-features-copy">
             <p className="lp-section-label">POWERFUL BY DESIGN</p>
             <h2 id="lp-features-title" className="lp-section-title lp-section-title--left">
-              Everything you need to build
+              <span className="lp-section-title-line">Everything you need to build</span>
               <br />
-              <span>reliable automations</span>
+              <span>Reliable Automations</span>
             </h2>
             <ul className="lp-feature-list">
               {FEATURES.map((f) => (
@@ -296,7 +281,7 @@ export function LandingPage() {
         </div>
       </section>
 
-      <section className="lp-use-cases" aria-labelledby="lp-use-cases-title">
+      <section className="lp-use-cases lp-grid-section lp-grid-section--fade-bottom-none" aria-labelledby="lp-use-cases-title">
         <div className="lp-container lp-section-center">
           <p className="lp-section-label">BUILT FOR EVERYONE</p>
           <h2 id="lp-use-cases-title" className="lp-section-title">
@@ -314,7 +299,7 @@ export function LandingPage() {
         </div>
       </section>
 
-      <section className="lp-cta-banner" aria-labelledby="lp-cta-title">
+      <section className="lp-cta-banner lp-grid-section lp-grid-section--fade-top-none" aria-labelledby="lp-cta-title">
         <div className="lp-container">
           <div className="lp-cta-inner">
             <div className="lp-cta-text">
@@ -331,12 +316,12 @@ export function LandingPage() {
               </Link>
               <p className="lp-cta-note">No credit card required</p>
             </div>
-            <LandingFloatingCubes className="lp-cta-cubes" count={5} />
+            <img src="/landing/H2.png" alt="" className="lp-cta-cubes" />
           </div>
         </div>
       </section>
 
-      <footer className="lp-footer">
+      <footer className="lp-footer lp-grid-section">
         <div className="lp-container">
           <div className="lp-footer-top">
             <div className="lp-footer-brand">

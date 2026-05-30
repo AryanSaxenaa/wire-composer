@@ -32,6 +32,7 @@ export function NodeInspector() {
     [node, getAllCredentials]
   );
 
+  const [credentialId, setCredentialId] = useState(savedCreds?.credential_id || "");
   const [credentialUsername, setCredentialUsername] = useState(savedCreds?.username || "");
   const [credentialPassword, setCredentialPassword] = useState(savedCreds?.password || "");
   const [credentialSession, setCredentialSession] = useState(savedCreds?.sessionCookie || "");
@@ -41,6 +42,7 @@ export function NodeInspector() {
   useEffect(() => {
     if (!node) return;
     const creds = getAllCredentials()[node.id];
+    setCredentialId(creds?.credential_id ?? node.credentials?.credential_id ?? "");
     setCredentialUsername(creds?.username ?? "");
     setCredentialPassword(creds?.password ?? "");
     setCredentialSession(creds?.sessionCookie ?? "");
@@ -57,12 +59,29 @@ export function NodeInspector() {
 
   const handleSaveCredentials = useCallback(() => {
     if (!node) return;
-    setNodeCredentials(node.id, {
+    const sessionCreds = {
+      ...(credentialId.trim() ? { credential_id: credentialId.trim() } : {}),
       username: credentialUsername,
       password: credentialPassword,
       ...(showSession && credentialSession ? { sessionCookie: credentialSession } : {}),
+    };
+    setNodeCredentials(node.id, sessionCreds);
+    updateNode(node.id, {
+      credentials: {
+        platform: node.platform,
+        ...(credentialId.trim() ? { credential_id: credentialId.trim() } : {}),
+      },
     });
-  }, [node, setNodeCredentials, credentialUsername, credentialPassword, credentialSession, showSession]);
+  }, [
+    node,
+    setNodeCredentials,
+    updateNode,
+    credentialId,
+    credentialUsername,
+    credentialPassword,
+    credentialSession,
+    showSession,
+  ]);
 
   if (!inspectorOpen || !node) {
     return null;
@@ -75,7 +94,7 @@ export function NodeInspector() {
         <button
           type="button"
           onClick={() => setInspectorOpen(false)}
-          className="text-[#8888aa] hover:text-[#f0f0ff] text-lg leading-none"
+          className="text-[#475569] hover:text-[#0f172a] text-lg leading-none"
           aria-label="Close inspector"
         >
           ×
@@ -100,7 +119,7 @@ export function NodeInspector() {
         {ambiguousMapping && ambiguousMapping.nodeId === node.id && (
           <div className="cmp-inspector-section">
             <h4>Which field?</h4>
-            <p className="text-xs text-[#8888aa] mb-2">
+            <p className="text-xs text-[#475569] mb-2">
               Multiple upstream fields match &ldquo;{ambiguousMapping.targetField}&rdquo;. Pick one:
             </p>
             <div className="flex flex-col gap-2">
@@ -115,7 +134,7 @@ export function NodeInspector() {
                   }}
                 >
                   <span className="font-mono text-xs">{opt.fromField}</span>
-                  <span className="text-[#8888aa] text-xs ml-2">from {opt.sourceLabel}</span>
+                  <span className="text-[#475569] text-xs ml-2">from {opt.sourceLabel}</span>
                 </button>
               ))}
             </div>
@@ -180,10 +199,27 @@ export function NodeInspector() {
         {action?.requiresAuth && (
           <div className="cmp-inspector-section">
             <div className="cmp-alert cmp-alert--warn mb-3">
-              Credentials are used only for this run and never stored on our servers.
+              Wire uses Anakin credential IDs from your Identities dashboard. Values here are
+              used only for this run and never stored on our servers.
             </div>
             <h4>Credentials</h4>
             <div className="flex flex-col gap-3">
+              <div>
+                <label className="block text-[11px] font-medium text-[#64748b] mb-1">
+                  Credential ID (recommended)
+                </label>
+                <input
+                  id="cred-id"
+                  className="cmp-field-input font-mono text-xs"
+                  placeholder="11111111-2222-3333-4444-555555555555"
+                  value={credentialId}
+                  onChange={(e) => setCredentialId(e.target.value)}
+                />
+                <p className="text-[10px] text-[#94a3b8] mt-1">
+                  From Anakin Wire → Identities, or env{" "}
+                  <span className="font-mono">ANAKIN_CREDENTIAL_ID</span>
+                </p>
+              </div>
               <div>
                 <label className="block text-[11px] font-medium text-[#64748b] mb-1">
                   Username / email

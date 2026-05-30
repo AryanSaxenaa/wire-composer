@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { useComposerStore } from "@/lib/store";
 import { getActionById } from "@/lib/action-registry";
 import { isBuiltinAction } from "@/lib/builtin-actions";
@@ -15,6 +15,31 @@ interface RunResult {
 interface RunOptions {
   startFromNodeId?: string;
   initialNodeOutputs?: Record<string, Record<string, unknown>>;
+}
+
+function flushSseBuffer(
+  buffer: string,
+  processLine: (event: string | null, dataLine: string | null) => void
+): string {
+  let currentEvent: string | null = null;
+  const lines = buffer.split("\n");
+  for (const line of lines) {
+    if (line.startsWith("event: ")) {
+      currentEvent = line.slice(7).trim();
+    } else if (line.startsWith("data: ") && currentEvent) {
+      processLine(currentEvent, line.slice(6));
+      currentEvent = null;
+    }
+  }
+  return currentEvent ? `event: ${currentEvent}\n` : "";
+}
+
+function collectPartialOutputs(): Record<string, Record<string, unknown>> {
+  const partial: Record<string, Record<string, unknown>> = {};
+  useComposerStore.getState().pipeline?.nodes.forEach((n) => {
+    if (n.output) partial[n.id] = n.output;
+  });
+  return partial;
 }
 
 export function usePipelineRunner() {
@@ -35,7 +60,7 @@ export function usePipelineRunner() {
   const setRateLimitSeconds = useComposerStore((s) => s.setRateLimitSeconds);
   const { getAllCredentials } = useCredentials();
   const [missingCredentials, setMissingCredentials] = useState<string[]>([]);
-  const [abortController, setAbortController] = useState<AbortController | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
 
   const validateCredentials = useCallback((): string[] => {
     if (!pipeline) return [];
@@ -43,8 +68,13 @@ export function usePipelineRunner() {
     const missing: string[] = [];
     pipeline.nodes.forEach((n) => {
       const action = getActionById(n.actionId);
-      if (action?.requiresAuth && !isBuiltinAction(n.actionId) && !allCreds[n.id]) {
-        missing.push(n.id);
+      if (action?.requiresAuth && !isBuiltinAction(n.actionId)) {
+        const creds = { ...n.credentials, ...allCreds[n.id] };
+        const hasCreds =
+          creds.credential_id?.trim() ||
+          creds.password?.trim() ||
+          creds.sessionCookie?.trim();
+        if (!hasCreds) missing.push(n.id);
       }
     });
     return missing;
@@ -121,15 +151,19 @@ export function usePipelineRunner() {
           setInspectorOpen(true);
           break;
         }
-        case "pipeline_paused":
-          setRunPaused(
-            true,
-            eventData.nodeOutputs as Record<string, Record<string, unknown>>,
-            (eventData.nodeId as string) ?? null
-          );
-          setRunStatus("running");
-          addToast("info", "Pipeline paused — choose a field mapping");
+        case "pipeline_paused": {
+          const reason = eventData.reason as string | undefined;
+          const nodeId = (eventData.nodeId as string) ?? null;
+          setRunPaused(true, collectPartialOutputs(), nodeId);
+          if (reason === "rate_limit") {
+            const secs = (eventData.retryAfterSeconds as number) ?? 30;
+            setRateLimitSeconds(secs);
+            addToast("info", `Rate limited — auto-resuming in ${secs}s`);
+          } else {
+            addToast("info", "Pipeline paused — choose a field mapping");
+          }
           break;
+        }
         case "pipeline_complete": {
           setRunStatus("complete");
           setRunPaused(false, null, null);
@@ -152,6 +186,8 @@ export function usePipelineRunner() {
           setRunStatus("failed");
           setRateLimitSeconds(null);
           const live = useComposerStore.getState().pipeline;
+          const failedId = eventData.failedNodeId as string | undefined;
+          const errText = (eventData.error as string) || failedId || "unknown step";
           if (live) {
             setPipeline(
               {
@@ -162,16 +198,16 @@ export function usePipelineRunner() {
               { keepRunState: true }
             );
           }
-          if (eventData.resumable && eventData.nodeOutputs) {
-            useComposerStore.getState().setRunPaused(
-              true,
-              eventData.nodeOutputs as Record<string, Record<string, unknown>>,
-              eventData.failedNodeId as string
-            );
-            addToast("error", "Connection lost — Resume when ready");
+          if (eventData.resumable && failedId) {
+            setRunPaused(true, collectPartialOutputs(), failedId);
+            if (failedId) {
+              setSelectedNodeId(failedId);
+              setInspectorOpen(true);
+            }
+            addToast("error", `${errText} — Resume from failed step`);
           } else {
             setRunPaused(false, null, null);
-            addToast("error", `Pipeline failed at "${eventData.failedNodeId}"`);
+            addToast("error", String(errText));
           }
           break;
         }
@@ -196,8 +232,9 @@ export function usePipelineRunner() {
 
       const credentials: Record<string, Record<string, string>> = {};
       const allCreds = getAllCredentials();
-      Object.keys(allCreds).forEach((id) => {
-        if (allCreds[id]) credentials[id] = allCreds[id];
+      pipeline.nodes.forEach((n) => {
+        const merged = { ...n.credentials, ...allCreds[n.id] };
+        if (Object.keys(merged).length > 0) credentials[n.id] = merged;
       });
 
       const runId = crypto.randomUUID();
@@ -211,8 +248,18 @@ export function usePipelineRunner() {
         log: [],
       });
 
+      abortRef.current?.abort();
       const controller = new AbortController();
-      setAbortController(controller);
+      abortRef.current = controller;
+
+      const processSseLine = (eventName: string | null, dataJson: string | null) => {
+        if (!eventName || dataJson == null) return;
+        try {
+          processEvent(eventName, JSON.parse(dataJson));
+        } catch {
+          addToast("error", "Received malformed run event");
+        }
+      };
 
       try {
         const res = await fetch("/api/run-pipeline", {
@@ -228,7 +275,24 @@ export function usePipelineRunner() {
           signal: controller.signal,
         });
 
-        if (!res.ok || !res.body) {
+        if (!res.ok) {
+          let errMsg = "Pipeline failed to start";
+          try {
+            const text = await res.text();
+            const match = text.match(/data: (\{.*\})/);
+            if (match) {
+              const parsed = JSON.parse(match[1]) as { error?: string };
+              if (parsed.error) errMsg = parsed.error;
+            }
+          } catch {
+            /* use default */
+          }
+          setRunStatus("failed");
+          addToast("error", errMsg);
+          return { success: false, cancelled: false };
+        }
+
+        if (!res.body) {
           setRunStatus("failed");
           addToast("error", "Pipeline failed to start");
           return { success: false, cancelled: false };
@@ -251,41 +315,45 @@ export function usePipelineRunner() {
             if (line.startsWith("event: ")) {
               currentEvent = line.slice(7).trim();
             } else if (line.startsWith("data: ") && currentEvent) {
-              try {
-                const eventData = JSON.parse(line.slice(6));
-                processEvent(currentEvent, eventData);
-              } catch {
-                /* skip */
-              }
+              processSseLine(currentEvent, line.slice(6));
               currentEvent = null;
             }
           }
         }
 
-      setAbortController(null);
-      setRateLimitSeconds(null);
-      const finalStatus = useComposerStore.getState().runStatus;
-      return {
-        success: finalStatus === "complete",
-        cancelled: false,
-      };
+        if (currentEvent && buffer.startsWith("data: ")) {
+          processSseLine(currentEvent, buffer.slice(6).trim());
+        } else if (buffer) {
+          buffer = flushSseBuffer(buffer, (ev, data) => {
+            if (ev && data) processSseLine(ev, data);
+          });
+        }
+
+        abortRef.current = null;
+        setRateLimitSeconds(null);
+        const finalStatus = useComposerStore.getState().runStatus;
+        if (finalStatus === "running") {
+          setRunStatus("failed");
+          addToast("error", "Run ended unexpectedly — try Resume or Run again");
+          return { success: false, cancelled: false };
+        }
+        return {
+          success: finalStatus === "complete",
+          cancelled: false,
+        };
       } catch (err: unknown) {
         if (err instanceof DOMException && err.name === "AbortError") {
           resetRun();
-          setAbortController(null);
+          abortRef.current = null;
           return { success: false, cancelled: true };
         }
         setRunStatus("failed");
-        const partial: Record<string, Record<string, unknown>> = {};
-        pipeline?.nodes.forEach((n) => {
-          if (n.output) partial[n.id] = n.output;
-        });
         const firstPending = pipeline?.nodes.find(
           (n) => n.status === "running" || n.status === "error"
         );
-        setRunPaused(true, partial, firstPending?.id ?? null);
+        setRunPaused(true, collectPartialOutputs(), firstPending?.id ?? null);
         addToast("error", "Connection lost — Resume when ready");
-        setAbortController(null);
+        abortRef.current = null;
         return { success: false, cancelled: false };
       }
     },
@@ -316,6 +384,7 @@ export function usePipelineRunner() {
         return { success: false, cancelled: false };
       }
       setMissingCredentials([]);
+      resetRun();
       setRunStatus("running");
       setRunPaused(false, null, null);
 
@@ -330,19 +399,21 @@ export function usePipelineRunner() {
       setSelectedNodeId,
       addToast,
       setRunPaused,
+      resetRun,
     ]
   );
 
   const resume = useCallback(async () => {
     const outputs = useComposerStore.getState().pausedNodeOutputs;
     const fromId = useComposerStore.getState().pausedFromNodeId;
+    setRateLimitSeconds(null);
     if (!outputs || !fromId) {
       return run();
     }
     setRunPaused(false, null, null);
     setRunStatus("running");
     return streamRun({ startFromNodeId: fromId, initialNodeOutputs: outputs });
-  }, [run, streamRun, setRunPaused, setRunStatus]);
+  }, [run, streamRun, setRunPaused, setRunStatus, setRateLimitSeconds]);
 
   const retryNode = useCallback(
     async (nodeId: string) => {
@@ -358,8 +429,12 @@ export function usePipelineRunner() {
   );
 
   const cancel = useCallback(() => {
-    abortController?.abort();
-  }, [abortController]);
+    abortRef.current?.abort();
+    abortRef.current = null;
+    setRunStatus("idle");
+    setRateLimitSeconds(null);
+    addToast("info", "Run cancelled");
+  }, [addToast, setRunStatus, setRateLimitSeconds]);
 
   return {
     run,

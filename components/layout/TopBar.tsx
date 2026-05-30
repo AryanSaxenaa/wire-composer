@@ -6,7 +6,8 @@ import { useComposerStore } from "@/lib/store";
 import { usePipelineRunner } from "@/hooks/usePipelineRunner";
 import { Logo } from "@/components/ui/Logo";
 import { Spinner } from "@/components/ui/Spinner";
-import { sanitizePipelineForStorage } from "@/lib/sanitize-pipeline";
+import { preparePipelineForStorage } from "@/lib/sanitize-pipeline";
+import { useCredentials } from "@/lib/credentials-context";
 
 export function TopBar() {
   const pipeline = useComposerStore((s) => s.pipeline);
@@ -19,7 +20,11 @@ export function TopBar() {
   const [scheduleCron, setScheduleCron] = useState(pipeline?.schedule || "0 9 * * *");
   const [schedulePreset, setSchedulePreset] = useState("daily");
   const [webhookModalUrl, setWebhookModalUrl] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const openConfirm = useComposerStore((s) => s.openConfirm);
+  const parseError = useComposerStore((s) => s.parseError);
   const { run, cancel } = usePipelineRunner();
+  const { getAllCredentials } = useCredentials();
 
   useEffect(() => {
     if (pipeline?.name) setName(pipeline.name);
@@ -27,14 +32,18 @@ export function TopBar() {
   }, [pipeline?.name, pipeline?.schedule, pipeline?.webhookId]);
 
   const handleSave = useCallback(async () => {
-    if (!pipeline) return;
-    const updated = sanitizePipelineForStorage({
-      ...pipeline,
-      name: name.trim() || pipeline.name,
-    });
+    if (!pipeline || saving) return;
+    const updated = preparePipelineForStorage(
+      {
+        ...pipeline,
+        name: name.trim() || pipeline.name,
+      },
+      getAllCredentials()
+    );
 
     const isUpdate = pipelinePersisted && pipeline.id;
 
+    setSaving(true);
     try {
       const res = await fetch(
         isUpdate ? `/api/pipelines/${pipeline.id}` : "/api/pipelines",
@@ -53,8 +62,10 @@ export function TopBar() {
       }
     } catch {
       useComposerStore.getState().addToast("error", "Save failed — check KV configuration");
+    } finally {
+      setSaving(false);
     }
-  }, [pipeline, name, pipelinePersisted]);
+  }, [pipeline, name, pipelinePersisted, saving, getAllCredentials]);
 
   const handleSaveSchedule = useCallback(async () => {
     if (!pipeline) return;
@@ -66,7 +77,7 @@ export function TopBar() {
         await fetch(`/api/pipelines/${pipeline.id}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(sanitizePipelineForStorage(updated)),
+          body: JSON.stringify(preparePipelineForStorage(updated, getAllCredentials())),
         });
         useComposerStore.getState().addToast("success", "Schedule saved");
       } catch {
@@ -76,7 +87,7 @@ export function TopBar() {
       useComposerStore.getState().addToast("success", "Schedule set — save pipeline to enable cron");
     }
     setScheduleOpen(false);
-  }, [pipeline, scheduleCron, pipelinePersisted]);
+  }, [pipeline, scheduleCron, pipelinePersisted, getAllCredentials]);
 
   const handleDeployWebhook = useCallback(async () => {
     if (!pipeline) return;
@@ -93,6 +104,8 @@ export function TopBar() {
           useComposerStore.getState().setPipeline(data.pipeline, { fromStorage: true });
         }
         useComposerStore.getState().addToast("success", "Webhook URL ready");
+      } else {
+        useComposerStore.getState().addToast("error", data.error || "Webhook deploy failed");
       }
     } catch {
       useComposerStore.getState().addToast("error", "Webhook deploy failed");
@@ -122,6 +135,13 @@ export function TopBar() {
   };
 
   const showSaved = pipeline && pipelinePersisted;
+  const showUnsaved = pipeline && !pipelinePersisted;
+
+  const copyWebhookUrl = useCallback(() => {
+    if (!webhookModalUrl) return;
+    void navigator.clipboard.writeText(webhookModalUrl);
+    useComposerStore.getState().addToast("success", "Webhook URL copied");
+  }, [webhookModalUrl]);
 
   return (
     <header className="cmp-topbar">
@@ -144,6 +164,9 @@ export function TopBar() {
             className="cmp-topbar-name"
             disabled={!pipeline}
           />
+          {showUnsaved && (
+            <span className="cmp-unsaved-badge">Unsaved changes</span>
+          )}
           {showSaved && (
             <span className="cmp-saved-badge">
               <span className="cmp-saved-dot">
@@ -159,8 +182,13 @@ export function TopBar() {
 
       <div className="cmp-topbar-actions">
         {parseStatus === "loading" && (
-          <span className="flex items-center gap-1.5 text-xs text-[#8888aa]">
+          <span className="flex items-center gap-1.5 text-xs text-[#475569]">
             <Spinner size="sm" /> Parsing...
+          </span>
+        )}
+        {parseError && (
+          <span className="text-xs text-[#dc2626] max-w-[200px] truncate" title={parseError}>
+            Parse failed
           </span>
         )}
         <Link href="/pipelines" className="cmp-btn">
@@ -170,21 +198,34 @@ export function TopBar() {
           type="button"
           className="cmp-btn"
           onClick={() => {
-            if (
-              pipeline &&
-              !window.confirm(
-                "Start a new pipeline? Unsaved changes on the canvas will be lost."
-              )
-            ) {
+            if (!pipeline) {
+              clearPipeline();
               return;
             }
-            clearPipeline();
+            openConfirm({
+              title: "New pipeline",
+              message: "Discard the current canvas? Unsaved changes will be lost.",
+              confirmLabel: "Discard",
+              variant: "danger",
+              onConfirm: () => clearPipeline(),
+            });
           }}
         >
           New
         </button>
-        <button type="button" className="cmp-btn" onClick={handleSave} disabled={!pipeline}>
-          Save
+        <button
+          type="button"
+          className="cmp-btn"
+          onClick={handleSave}
+          disabled={!pipeline || saving}
+        >
+          {saving ? (
+            <>
+              <Spinner size="sm" /> Saving…
+            </>
+          ) : (
+            "Save"
+          )}
         </button>
         <button
           type="button"
@@ -197,11 +238,6 @@ export function TopBar() {
         <button type="button" className="cmp-btn" onClick={handleDeployWebhook} disabled={!pipeline}>
           Deploy Webhook
         </button>
-        {runStatus === "running" ? (
-          <button type="button" className="cmp-btn" onClick={cancel}>
-            Cancel
-          </button>
-        ) : null}
         <button
           type="button"
           className="cmp-btn cmp-btn--primary"
@@ -250,7 +286,7 @@ export function TopBar() {
               value={scheduleCron}
               onChange={(e) => setScheduleCron(e.target.value)}
             />
-            <p className="text-[10px] text-[#555577] mt-2">
+            <p className="text-[10px] text-[#94a3b8] mt-2">
               Vercel cron checks every 5 minutes via <code className="font-mono">/api/cron/run-scheduled</code>
             </p>
             <div className="flex gap-2 mt-4 justify-end">
@@ -267,13 +303,23 @@ export function TopBar() {
 
       {webhookModalUrl && (
         <div className="cmp-modal-backdrop" onClick={() => setWebhookModalUrl(null)}>
-          <div className="cmp-modal" onClick={(e) => e.stopPropagation()}>
-            <h3>Webhook URL</h3>
-            <p className="text-xs text-[#8888aa] mt-2 mb-2">POST JSON to run this pipeline.</p>
+          <div
+            className="cmp-modal"
+            role="dialog"
+            aria-labelledby="webhook-title"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 id="webhook-title">Webhook URL</h3>
+            <p className="text-xs text-[#475569] mt-2 mb-2">POST JSON to run this pipeline.</p>
             <input className="cmp-field-input w-full font-mono text-xs" readOnly value={webhookModalUrl} />
-            <button type="button" className="cmp-btn mt-3" onClick={() => setWebhookModalUrl(null)}>
-              Close
-            </button>
+            <div className="flex gap-2 mt-3 justify-end">
+              <button type="button" className="cmp-btn" onClick={copyWebhookUrl}>
+                Copy URL
+              </button>
+              <button type="button" className="cmp-btn" onClick={() => setWebhookModalUrl(null)}>
+                Close
+              </button>
+            </div>
           </div>
         </div>
       )}

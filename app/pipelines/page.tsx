@@ -40,9 +40,19 @@ export default function PipelinesPage() {
   }, []);
 
   const handleDelete = async (id: string) => {
-    await fetch(`/api/pipelines/${id}`, { method: "DELETE" });
-    setPipelines((p) => p.filter((x) => x.id !== id));
-    setDeleteId(null);
+    try {
+      const res = await fetch(`/api/pipelines/${id}`, { method: "DELETE" });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setError((data as { error?: string }).error || "Delete failed");
+        return;
+      }
+      setPipelines((p) => p.filter((x) => x.id !== id));
+    } catch {
+      setError("Delete failed — check your connection");
+    } finally {
+      setDeleteId(null);
+    }
   };
 
   return (
@@ -67,9 +77,29 @@ export default function PipelinesPage() {
         ) : error ? (
           <div className="cmp-page-center">
             <p className="cmp-alert cmp-alert--error">{error}</p>
-            <Link href="/composer" className="cmp-btn cmp-btn--primary">
-              Open composer
-            </Link>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                className="cmp-btn"
+                onClick={() => {
+                  setError(null);
+                  setLoading(true);
+                  fetch("/api/pipelines")
+                    .then((r) => r.json())
+                    .then((data) => {
+                      if (data.error) setError(data.error);
+                      setPipelines(data.pipelines || []);
+                    })
+                    .catch(() => setError("Could not load pipelines. Check your KV configuration."))
+                    .finally(() => setLoading(false));
+                }}
+              >
+                Retry
+              </button>
+              <Link href="/composer" className="cmp-btn cmp-btn--primary">
+                Open composer
+              </Link>
+            </div>
           </div>
         ) : pipelines.length === 0 ? (
           <div className="cmp-page-center">

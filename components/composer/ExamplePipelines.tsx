@@ -1,19 +1,31 @@
 "use client";
 
+import { Globe, ClipboardList, Code2, Star } from "lucide-react";
+
+const ICON_MAP: Record<string, React.ReactNode> = {
+  globe: <Globe size={16} />,
+  clipboard: <ClipboardList size={16} />,
+  code2: <Code2 size={16} />,
+  star: <Star size={16} />,
+  in: <span style={{ fontSize: 11, fontWeight: 800, color: "#0a66c2" }}>in</span>,
+  a: <span style={{ fontSize: 13, fontWeight: 700 }}>a</span>,
+};
+
 interface ExamplePipelinesProps {
   onSelect: (text: string) => void;
+  disabled?: boolean;
 }
 
 const EXAMPLES: { text: string; icon: string; tone: string }[] = [
-  { text: "Monitor Glassdoor reviews → post to Slack", icon: "🌐", tone: "blue" },
-  { text: "Search LinkedIn for prospects → export to CSV", icon: "in", tone: "purple" },
-  { text: "Track competitor prices on Amazon → alert if changed", icon: "a", tone: "orange" },
-  { text: "Read new GitHub issues → create Jira tickets", icon: "⌘", tone: "gray" },
-  { text: "Scrape job postings → draft applications", icon: "📋", tone: "green" },
-  { text: "Monitor Trustpilot → reply via LinkedIn message", icon: "★", tone: "pink" },
+  { text: "Search GitHub developers → list their repos", icon: "code2", tone: "gray" },
+  { text: "Monitor r/programming hot posts → extract titles", icon: "globe", tone: "blue" },
+  { text: "Product Hunt trending → load launch details", icon: "star", tone: "pink" },
+  { text: "Track Amazon ASIN price → fetch reviews if low", icon: "a", tone: "orange" },
+  { text: "Search Airbnb listings → get listing details", icon: "globe", tone: "green" },
+  { text: "Trustpilot 1-star reviews → draft AI replies", icon: "clipboard", tone: "purple" },
 ];
 
-export function ExamplePipelines({ onSelect }: ExamplePipelinesProps) {
+export function ExamplePipelines({ onSelect, disabled }: ExamplePipelinesProps) {
   return (
     <div className="cmp-examples">
       <p className="cmp-kicker">EXAMPLES</p>
@@ -26,14 +38,11 @@ export function ExamplePipelines({ onSelect }: ExamplePipelinesProps) {
             key={ex.text}
             type="button"
             onClick={() => onSelect(ex.text)}
+            disabled={disabled}
             className="cmp-example-card"
           >
             <span className={`cmp-example-icon cmp-example-icon--${ex.tone}`}>
-              {ex.icon === "in" ? (
-                <span style={{ fontSize: 11, fontWeight: 800, color: "#0a66c2" }}>in</span>
-              ) : (
-                ex.icon
-              )}
+              {ICON_MAP[ex.icon] ?? ex.icon}
             </span>
             <span className="cmp-example-text">{ex.text}</span>
           </button>

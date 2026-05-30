@@ -35,8 +35,14 @@ export async function POST(req: NextRequest) {
           controller.enqueue(encoder.encode(sseEvent({ event, ...data })));
         };
 
-        await executePipeline(options, emit);
-        controller.close();
+        try {
+          await executePipeline(options, emit);
+        } catch (err: unknown) {
+          const message = err instanceof Error ? err.message : "Pipeline execution failed";
+          emit("pipeline_failed", { error: message });
+        } finally {
+          controller.close();
+        }
       },
     });
 

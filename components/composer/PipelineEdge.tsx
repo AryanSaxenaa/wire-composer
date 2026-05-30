@@ -30,7 +30,7 @@ function PipelineEdgeComponent({
       path={edgePath}
       style={{
         ...style,
-        stroke: animated ? "#4f6ef7" : "rgba(79, 110, 247, 0.4)",
+        stroke: animated ? "#2563eb" : "rgba(37, 99, 235, 0.3)",
         strokeWidth: animated ? 2 : 1.5,
       }}
     />

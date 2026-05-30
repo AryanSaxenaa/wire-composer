@@ -10,21 +10,18 @@ import { StatusDot } from "@/components/ui/StatusDot";
 function platformIconSrc(platform: string): string {
   let key = platform.toLowerCase().replace(/[^a-z0-9]/g, "");
   if (key === "googlemaps") key = "google";
+  if (key.startsWith("github")) key = "github";
   const known = [
-    "linkedin",
     "amazon",
-    "slack",
     "shopify",
     "github",
     "glassdoor",
     "trustpilot",
-    "jira",
-    "notion",
-    "instagram",
-    "twitter",
-    "linear",
     "reddit",
     "airbnb",
+    "linkedin",
+    "slack",
+    "notion",
   ];
   if (known.includes(key)) return `/platform-icons/${key}.svg`;
   return "/platform-icons/default.svg";
@@ -83,7 +80,7 @@ function PipelineNodeComponent({ id, data, selected }: NodeProps) {
               {config[f.key] ? (
                 config[f.key]
               ) : (
-                <span className="italic text-[#555577]">not set</span>
+                <span className="italic text-[#94a3b8]">not set</span>
               )}
             </span>
           </div>
@@ -92,7 +89,7 @@ function PipelineNodeComponent({ id, data, selected }: NodeProps) {
 
       {isSkipped && (
         <div className="node-output">
-          <span className="text-[#8888aa] font-mono text-xs">Skipped (gate)</span>
+          <span className="text-[#475569] font-mono text-xs">Skipped (gate)</span>
         </div>
       )}
 

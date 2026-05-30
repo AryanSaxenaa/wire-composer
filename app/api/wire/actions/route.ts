@@ -1,30 +1,35 @@
 import { NextResponse } from "next/server";
 import { kv } from "@vercel/kv";
-import { ACTION_REGISTRY } from "@/lib/action-registry";
-import { getWireActions } from "@/lib/wire-client";
+import { BUILTIN_ACTIONS, registerAnakinActions } from "@/lib/action-registry";
+import { loadAnakinActions } from "@/lib/anakin-catalog";
 import { WireAction } from "@/types";
 
-const CACHE_KEY = "wire:actions:catalog";
+const CACHE_KEY = "wire:actions:catalog:v2";
 const CACHE_TTL_SEC = 10 * 60;
 
 let memoryCache: WireAction[] | null = null;
 let memoryCacheTs = 0;
+
+function mergeCatalog(anakinActions: WireAction[]): WireAction[] {
+  registerAnakinActions(anakinActions);
+  return [...BUILTIN_ACTIONS, ...anakinActions];
+}
 
 async function getCachedActions(): Promise<WireAction[] | null> {
   try {
     const cached = await kv.get<WireAction[]>(CACHE_KEY);
     if (cached?.length) return cached;
   } catch {
-    // KV not configured — fall through
+    // KV not configured
   }
   return null;
 }
 
-async function setCachedActions(actions: WireAction[]): Promise<void> {
+async function setCachedActions(anakinActions: WireAction[]): Promise<void> {
   try {
-    await kv.set(CACHE_KEY, actions, { ex: CACHE_TTL_SEC });
+    await kv.set(CACHE_KEY, anakinActions, { ex: CACHE_TTL_SEC });
   } catch {
-    memoryCache = actions;
+    memoryCache = anakinActions;
     memoryCacheTs = Date.now();
   }
 }
@@ -32,39 +37,24 @@ async function setCachedActions(actions: WireAction[]): Promise<void> {
 export async function GET() {
   const now = Date.now();
   if (memoryCache && now - memoryCacheTs < CACHE_TTL_SEC * 1000) {
-    return NextResponse.json({ actions: memoryCache });
+    return NextResponse.json({ actions: mergeCatalog(memoryCache) });
   }
 
   const kvCached = await getCachedActions();
   if (kvCached) {
     memoryCache = kvCached;
     memoryCacheTs = now;
-    return NextResponse.json({ actions: kvCached });
+    return NextResponse.json({ actions: mergeCatalog(kvCached) });
   }
 
   try {
-    const remoteActions = await getWireActions();
-
-    const merged = ACTION_REGISTRY.map((local) => {
-      const remote = Array.isArray(remoteActions)
-        ? remoteActions.find(
-            (r: unknown) =>
-              typeof r === "object" && r !== null && (r as Record<string, unknown>).id === local.id
-          )
-        : null;
-      if (remote && typeof remote === "object" && remote !== null) {
-        return { ...local, ...(remote as object) } as WireAction;
-      }
-      return local;
-    });
-
-    await setCachedActions(merged);
-    memoryCache = merged;
+    const anakinActions = await loadAnakinActions();
+    await setCachedActions(anakinActions);
+    memoryCache = anakinActions;
     memoryCacheTs = now;
-    return NextResponse.json({ actions: merged });
+    return NextResponse.json({ actions: mergeCatalog(anakinActions) });
   } catch {
-    const fallback = ACTION_REGISTRY;
-    await setCachedActions(fallback);
-    return NextResponse.json({ actions: fallback });
+    registerAnakinActions([]);
+    return NextResponse.json({ actions: BUILTIN_ACTIONS });
   }
 }

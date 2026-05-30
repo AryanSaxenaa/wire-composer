@@ -18,6 +18,8 @@ export function NodeContextMenu({ nodeId, x, y, onClose }: NodeContextMenuProps)
   const addNode = useComposerStore((s) => s.addNode);
   const setSelectedNodeId = useComposerStore((s) => s.setSelectedNodeId);
   const setInspectorOpen = useComposerStore((s) => s.setInspectorOpen);
+  const openConfirm = useComposerStore((s) => s.openConfirm);
+  const runStatus = useComposerStore((s) => s.runStatus);
 
   useEffect(() => {
     const handle = (e: MouseEvent) => {
@@ -36,7 +38,17 @@ export function NodeContextMenu({ nodeId, x, y, onClose }: NodeContextMenuProps)
   };
 
   const handleRemove = () => {
-    removeNode(nodeId);
+    if (runStatus === "running") {
+      onClose();
+      return;
+    }
+    openConfirm({
+      title: "Remove step?",
+      message: "This removes the node and its connections.",
+      confirmLabel: "Remove",
+      variant: "danger",
+      onConfirm: () => removeNode(nodeId),
+    });
     onClose();
   };
 

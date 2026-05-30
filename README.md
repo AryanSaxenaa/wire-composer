@@ -42,7 +42,7 @@ No-code visual pipeline builder: describe a workflow in plain English, get an ex
 | Canvas | React Flow 11 |
 | State | Zustand (`lib/store.ts`) |
 | Parser / AI transform | DeepSeek via OpenAI SDK (`lib/deepseek.ts`, `lib/deepseek-transform.ts`) |
-| Wire actions | Anakin API (`lib/wire-client.ts`) |
+| Wire actions | Anakin catalog (`lib/anakin-catalog.ts`, synced from `/v1/wire/catalog`) |
 | Persistence | Vercel KV (`lib/pipeline-store.ts`) |
 | Cron | `cron-parser` + Vercel Cron |
 
@@ -91,10 +91,13 @@ KV_REST_API_READ_ONLY_TOKEN=...
 # Production cron (Vercel sends Authorization: Bearer <CRON_SECRET>)
 CRON_SECRET=...
 
-# Optional: server-side creds for cron/webhook runs (not stored in KV)
+# Optional: Anakin Wire credential UUID (from Wire → Identities)
+ANAKIN_CREDENTIAL_ID=...
+# Per-platform override for cron/webhook: WIRE_CRED_{PLATFORM}_CREDENTIAL_ID
+
+# Legacy username/password env vars (not sent to Wire API — prefer credential IDs)
 WIRE_CRED_SLACK_TOKEN=...
 WIRE_CRED_LINKEDIN_PASSWORD=...
-# Pattern: WIRE_CRED_{PLATFORM}_USER|PASSWORD|TOKEN|SESSION
 
 NEXT_PUBLIC_APP_URL=http://localhost:3000
 ```

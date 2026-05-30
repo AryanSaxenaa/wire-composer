@@ -47,7 +47,7 @@ interface ComposerStore {
   setClarification: (needed: boolean, question: string | null) => void;
   setParseReasoning: (r: string | null) => void;
 
-  runStatus: "idle" | "running" | "complete" | "failed";
+  runStatus: "idle" | "running" | "paused" | "complete" | "failed";
   runContext: RunContext | null;
   runPaused: boolean;
   pausedNodeOutputs: Record<string, Record<string, unknown>> | null;
@@ -72,6 +72,24 @@ interface ComposerStore {
   parseNLPrompt: (prompt: string, actions: WireAction[]) => Promise<void>;
   runPipeline: () => Promise<void>;
   resetRun: () => void;
+
+  confirmDialog: {
+    title: string;
+    message: string;
+    confirmLabel?: string;
+    variant?: "danger" | "primary";
+    onConfirm: () => void;
+    onCancel?: () => void;
+  } | null;
+  openConfirm: (opts: {
+    title: string;
+    message: string;
+    confirmLabel?: string;
+    variant?: "danger" | "primary";
+    onConfirm: () => void;
+    onCancel?: () => void;
+  }) => void;
+  closeConfirm: () => void;
 }
 
 export const useComposerStore = create<ComposerStore>((set, get) => ({
@@ -207,7 +225,11 @@ export const useComposerStore = create<ComposerStore>((set, get) => ({
       runPaused: paused,
       pausedNodeOutputs: outputs,
       pausedFromNodeId: fromNodeId,
-      runStatus: paused ? "running" : get().runStatus,
+      runStatus: paused
+        ? "paused"
+        : get().runStatus === "paused"
+          ? "running"
+          : get().runStatus,
     }),
   setAmbiguousMapping: (state) => set({ ambiguousMapping: state }),
   resolveAmbiguousMapping: (fromField) => {
@@ -292,6 +314,14 @@ export const useComposerStore = create<ComposerStore>((set, get) => ({
 
   runPipeline: async () => {
     /* Implemented via usePipelineRunner().run() in client components */
+  },
+
+  confirmDialog: null,
+  openConfirm: (opts) => set({ confirmDialog: opts }),
+  closeConfirm: () => {
+    const dialog = get().confirmDialog;
+    dialog?.onCancel?.();
+    set({ confirmDialog: null });
   },
 
   resetRun: () => {

@@ -3,6 +3,22 @@ import { autoLayoutNodes } from "@/lib/auto-layout";
 
 const now = () => new Date().toISOString();
 
+/** Verified Anakin Wire `action_id` values (GET /v1/wire/catalog/{slug}). */
+export const ANAKIN_DEMO_ACTIONS = {
+  amazonProductDetails: "am_product_details",
+  amazonProductReviews: "am_product_reviews",
+  airbnbSearchListings: "ab_search_listings",
+  airbnbListingDetails: "ab_listing_details",
+  trustpilotCompanyReviews: "tp_company_reviews",
+  githubSearchUsers: "gh_search_users",
+  githubUserDetails: "gh_user_details",
+  githubUserRepos: "gh_user_repos",
+  redditSubredditPosts: "rt_subreddit_posts",
+  redditPostDetails: "rt_post_details",
+  productHuntTrending: "ph_trending",
+  productHuntProductDetails: "ph_product_details",
+} as const;
+
 function layout(pipeline: Omit<Pipeline, "createdAt" | "updatedAt">): Pipeline {
   const nodes = autoLayoutNodes(pipeline.nodes, pipeline.edges);
   return {
@@ -14,24 +30,22 @@ function layout(pipeline: Omit<Pipeline, "createdAt" | "updatedAt">): Pipeline {
   };
 }
 
-/** Demo 1: Amazon read → extract price → compare → Slack (gated) */
+/** Amazon: product price → compare → reviews when below threshold */
 export const DEMO_PRICE_MONITOR = layout({
   id: "demo-competitor-price-monitor",
-  name: "Competitor Price Monitor",
-  description: "Read Amazon price, compare to threshold, notify Slack when lower",
-  naturalLanguagePrompt: "Track competitor Amazon price and Slack me if below threshold",
+  name: "Amazon Price Monitor",
+  description: "am_product_details → extract price → compare → am_product_reviews",
+  naturalLanguagePrompt: "Track Amazon ASIN price and fetch reviews when below threshold",
   schedule: undefined,
   nodes: [
     {
       id: "d1-read",
       type: "wireAction",
-      actionId: "amazon.product.read",
-      label: "Read Amazon product",
+      actionId: ANAKIN_DEMO_ACTIONS.amazonProductDetails,
+      label: "Product Details",
       platform: "amazon",
       position: { x: 0, y: 0 },
-      config: {
-        productUrl: "https://www.amazon.com/dp/B08N5WRWNW",
-      },
+      config: { asin: "B08N5WRWNW" },
       credentials: {},
       status: "idle",
     },
@@ -53,26 +67,18 @@ export const DEMO_PRICE_MONITOR = layout({
       label: "Below threshold?",
       platform: "wire",
       position: { x: 0, y: 0 },
-      config: {
-        threshold: "30",
-        operator: "lt",
-      },
+      config: { threshold: "30", operator: "lt" },
       credentials: {},
       status: "idle",
     },
     {
-      id: "d1-slack",
+      id: "d1-reviews",
       type: "wireAction",
-      actionId: "slack.message.send",
-      label: "Notify Slack",
-      platform: "slack",
+      actionId: ANAKIN_DEMO_ACTIONS.amazonProductReviews,
+      label: "Product Reviews",
+      platform: "amazon",
       position: { x: 0, y: 0 },
-      config: {
-        channel: "#general",
-        gateField: "passed",
-        gateValue: "true",
-        text: "Competitor price dropped below threshold.",
-      },
+      config: { asin: "B08N5WRWNW", gateField: "passed", gateValue: "true" },
       credentials: {},
       status: "idle",
     },
@@ -99,7 +105,7 @@ export const DEMO_PRICE_MONITOR = layout({
     {
       id: "d1-e3",
       source: "d1-compare",
-      target: "d1-slack",
+      target: "d1-reviews",
       sourceHandle: "passed",
       targetHandle: "passed",
       dataMapping: [{ fromField: "passed", toField: "passed" }],
@@ -108,45 +114,43 @@ export const DEMO_PRICE_MONITOR = layout({
   ],
 });
 
-/** Demo 2: LinkedIn search → profile → extract → Notion */
-export const DEMO_LINKEDIN_CRM = layout({
-  id: "demo-linkedin-notion-crm",
-  name: "LinkedIn Prospect to CRM",
-  description: "Search LinkedIn, read profile, append row to Notion",
-  naturalLanguagePrompt: "Search LinkedIn prospects and add to Notion database",
+/** GitHub: search users → profile → extract → list repos (replaces LinkedIn → Notion CRM) */
+export const DEMO_GITHUB_CRM = layout({
+  id: "demo-github-developer-crm",
+  name: "GitHub Developer CRM",
+  description: "gh_search_users → gh_user_details → extract → gh_user_repos",
+  naturalLanguagePrompt: "Search GitHub developers and enrich with profile and repositories",
   nodes: [
     {
-      id: "d2-search",
+      id: "d4-search",
       type: "wireAction",
-      actionId: "linkedin.search.people",
-      label: "Search LinkedIn",
-      platform: "linkedin",
+      actionId: ANAKIN_DEMO_ACTIONS.githubSearchUsers,
+      label: "Search Users",
+      platform: "github_public",
       position: { x: 0, y: 0 },
       config: {
-        keywords: "founder SaaS",
-        limit: "1",
+        query: "location:usa followers:>1000",
+        per_page: "5",
       },
       credentials: {},
       status: "idle",
     },
     {
-      id: "d2-profile",
+      id: "d4-profile",
       type: "wireAction",
-      actionId: "linkedin.profile.read",
-      label: "Read profile",
-      platform: "linkedin",
+      actionId: ANAKIN_DEMO_ACTIONS.githubUserDetails,
+      label: "User Details",
+      platform: "github_public",
       position: { x: 0, y: 0 },
-      config: {
-        profileUrl: "https://www.linkedin.com/in/example",
-      },
+      config: { username: "torvalds" },
       credentials: {},
       status: "idle",
     },
     {
-      id: "d2-extract",
+      id: "d4-extract",
       type: "wireAction",
       actionId: "wire.data.extract",
-      label: "Extract contact",
+      label: "Extract name",
       platform: "wire",
       position: { x: 0, y: 0 },
       config: { field: "name" },
@@ -154,16 +158,223 @@ export const DEMO_LINKEDIN_CRM = layout({
       status: "idle",
     },
     {
-      id: "d2-notion",
+      id: "d4-repos",
       type: "wireAction",
-      actionId: "notion.database.append",
-      label: "Add to Notion",
-      platform: "notion",
+      actionId: ANAKIN_DEMO_ACTIONS.githubUserRepos,
+      label: "User Repos",
+      platform: "github_public",
+      position: { x: 0, y: 0 },
+      config: { username: "torvalds" },
+      credentials: {},
+      status: "idle",
+    },
+  ],
+  edges: [
+    {
+      id: "d4-e1",
+      source: "d4-search",
+      target: "d4-profile",
+      sourceHandle: "login",
+      targetHandle: "username",
+      dataMapping: [{ fromField: "login", toField: "username" }],
+      animated: false,
+    },
+    {
+      id: "d4-e2",
+      source: "d4-profile",
+      target: "d4-extract",
+      sourceHandle: "name",
+      targetHandle: "source",
+      dataMapping: [{ fromField: "name", toField: "source" }],
+      animated: false,
+    },
+    {
+      id: "d4-e3",
+      source: "d4-profile",
+      target: "d4-repos",
+      sourceHandle: "login",
+      targetHandle: "username",
+      dataMapping: [{ fromField: "login", toField: "username" }],
+      animated: false,
+    },
+  ],
+});
+
+/** Reddit: subreddit feed → post details (replaces Slack-style alerts) */
+export const DEMO_REDDIT_MONITOR = layout({
+  id: "demo-reddit-thread-monitor",
+  name: "Reddit Thread Monitor",
+  description: "rt_subreddit_posts → rt_post_details → extract title",
+  naturalLanguagePrompt: "Monitor a subreddit and pull full post details",
+  nodes: [
+    {
+      id: "d5-feed",
+      type: "wireAction",
+      actionId: ANAKIN_DEMO_ACTIONS.redditSubredditPosts,
+      label: "Subreddit Posts",
+      platform: "reddit",
       position: { x: 0, y: 0 },
       config: {
-        databaseUrl: "https://www.notion.so/workspace/database-id",
-        properties: '{"Name":{"title":[{"text":{"content":"Prospect"}}]}}',
+        subreddit: "programming",
+        sort: "hot",
+        limit: "5",
       },
+      credentials: {},
+      status: "idle",
+    },
+    {
+      id: "d5-post",
+      type: "wireAction",
+      actionId: ANAKIN_DEMO_ACTIONS.redditPostDetails,
+      label: "Post Details",
+      platform: "reddit",
+      position: { x: 0, y: 0 },
+      config: {
+        post_id: "",
+        subreddit: "programming",
+      },
+      credentials: {},
+      status: "idle",
+    },
+    {
+      id: "d5-extract",
+      type: "wireAction",
+      actionId: "wire.data.extract",
+      label: "Extract title",
+      platform: "wire",
+      position: { x: 0, y: 0 },
+      config: { field: "title" },
+      credentials: {},
+      status: "idle",
+    },
+  ],
+  edges: [
+    {
+      id: "d5-e1",
+      source: "d5-feed",
+      target: "d5-post",
+      sourceHandle: "id",
+      targetHandle: "post_id",
+      dataMapping: [{ fromField: "id", toField: "post_id" }],
+      animated: false,
+    },
+    {
+      id: "d5-e2",
+      source: "d5-post",
+      target: "d5-extract",
+      sourceHandle: "title",
+      targetHandle: "source",
+      dataMapping: [{ fromField: "title", toField: "source" }],
+      animated: false,
+    },
+  ],
+});
+
+/** Product Hunt: trending → product details (replaces Notion database append) */
+export const DEMO_PRODUCT_HUNT = layout({
+  id: "demo-producthunt-launch-radar",
+  name: "Product Hunt Launch Radar",
+  description: "ph_trending → ph_product_details → extract product name",
+  naturalLanguagePrompt: "Get Product Hunt trending launches and load product details",
+  nodes: [
+    {
+      id: "d6-trending",
+      type: "wireAction",
+      actionId: ANAKIN_DEMO_ACTIONS.productHuntTrending,
+      label: "Trending Products",
+      platform: "producthunt",
+      position: { x: 0, y: 0 },
+      config: {},
+      credentials: {},
+      status: "idle",
+    },
+    {
+      id: "d6-product",
+      type: "wireAction",
+      actionId: ANAKIN_DEMO_ACTIONS.productHuntProductDetails,
+      label: "Product Details",
+      platform: "producthunt",
+      position: { x: 0, y: 0 },
+      config: {
+        slug: "notion",
+      },
+      credentials: {},
+      status: "idle",
+    },
+    {
+      id: "d6-extract",
+      type: "wireAction",
+      actionId: "wire.data.extract",
+      label: "Extract name",
+      platform: "wire",
+      position: { x: 0, y: 0 },
+      config: { field: "name" },
+      credentials: {},
+      status: "idle",
+    },
+  ],
+  edges: [
+    {
+      id: "d6-e1",
+      source: "d6-trending",
+      target: "d6-product",
+      sourceHandle: "slug",
+      targetHandle: "slug",
+      dataMapping: [{ fromField: "slug", toField: "slug" }],
+      animated: false,
+    },
+    {
+      id: "d6-e2",
+      source: "d6-product",
+      target: "d6-extract",
+      sourceHandle: "name",
+      targetHandle: "source",
+      dataMapping: [{ fromField: "name", toField: "source" }],
+      animated: false,
+    },
+  ],
+});
+
+/** Airbnb: search → listing details */
+export const DEMO_AIRBNB_LISTINGS = layout({
+  id: "demo-airbnb-listing-scan",
+  name: "Airbnb Listing Scan",
+  description: "ab_search_listings → ab_listing_details → extract title",
+  naturalLanguagePrompt: "Search Airbnb in a location and get listing details",
+  nodes: [
+    {
+      id: "d2-search",
+      type: "wireAction",
+      actionId: ANAKIN_DEMO_ACTIONS.airbnbSearchListings,
+      label: "Search Listings",
+      platform: "airbnb",
+      position: { x: 0, y: 0 },
+      config: {
+        query: "Pacific Heights, San Francisco",
+        adults: "2",
+      },
+      credentials: {},
+      status: "idle",
+    },
+    {
+      id: "d2-details",
+      type: "wireAction",
+      actionId: ANAKIN_DEMO_ACTIONS.airbnbListingDetails,
+      label: "Listing Details",
+      platform: "airbnb",
+      position: { x: 0, y: 0 },
+      config: { listing_id: "" },
+      credentials: {},
+      status: "idle",
+    },
+    {
+      id: "d2-extract",
+      type: "wireAction",
+      actionId: "wire.data.extract",
+      label: "Extract title",
+      platform: "wire",
+      position: { x: 0, y: 0 },
+      config: { field: "title" },
       credentials: {},
       status: "idle",
     },
@@ -172,51 +383,39 @@ export const DEMO_LINKEDIN_CRM = layout({
     {
       id: "d2-e1",
       source: "d2-search",
-      target: "d2-profile",
-      sourceHandle: "results",
-      targetHandle: "profileUrl",
-      dataMapping: [],
+      target: "d2-details",
+      sourceHandle: "listing_id",
+      targetHandle: "listing_id",
+      dataMapping: [{ fromField: "listing_id", toField: "listing_id" }],
       animated: false,
     },
     {
       id: "d2-e2",
-      source: "d2-profile",
+      source: "d2-details",
       target: "d2-extract",
-      sourceHandle: "name",
+      sourceHandle: "title",
       targetHandle: "source",
-      dataMapping: [{ fromField: "name", toField: "source" }],
-      animated: false,
-    },
-    {
-      id: "d2-e3",
-      source: "d2-extract",
-      target: "d2-notion",
-      sourceHandle: "value",
-      targetHandle: "properties",
-      dataMapping: [{ fromField: "value", toField: "properties" }],
+      dataMapping: [{ fromField: "title", toField: "source" }],
       animated: false,
     },
   ],
 });
 
-/** Demo 3: Trustpilot → filter → AI reply → post reply */
+/** Trustpilot: reviews → filter 1-star → AI draft */
 export const DEMO_TRUSTPILOT = layout({
   id: "demo-trustpilot-responder",
   name: "Trustpilot Review Responder",
-  description: "Read reviews, filter 1-star, draft reply with AI, post response",
-  naturalLanguagePrompt: "Respond to 1-star Trustpilot reviews with AI-generated replies",
+  description: "tp_company_reviews → filter 1-star → AI draft reply",
+  naturalLanguagePrompt: "Draft replies to 1-star Trustpilot reviews with AI",
   nodes: [
     {
       id: "d3-read",
       type: "wireAction",
-      actionId: "trustpilot.reviews.read",
-      label: "Read Trustpilot reviews",
+      actionId: ANAKIN_DEMO_ACTIONS.trustpilotCompanyReviews,
+      label: "Company Reviews",
       platform: "trustpilot",
       position: { x: 0, y: 0 },
-      config: {
-        companyUrl: "https://www.trustpilot.com/review/example.com",
-        limit: "10",
-      },
+      config: { domain: "amazon.com", page: "1" },
       credentials: {},
       status: "idle",
     },
@@ -235,24 +434,13 @@ export const DEMO_TRUSTPILOT = layout({
       id: "d3-ai",
       type: "wireAction",
       actionId: "wire.ai.transform",
-      label: "Generate reply (DeepSeek)",
+      label: "Draft reply (DeepSeek)",
       platform: "wire",
       position: { x: 0, y: 0 },
       config: {
         prompt:
           "Write a brief, empathetic public reply to this 1-star review. Acknowledge the issue and offer to help offline.",
       },
-      credentials: {},
-      status: "idle",
-    },
-    {
-      id: "d3-reply",
-      type: "wireAction",
-      actionId: "trustpilot.review.reply",
-      label: "Post Trustpilot reply",
-      platform: "trustpilot",
-      position: { x: 0, y: 0 },
-      config: {},
       credentials: {},
       status: "idle",
     },
@@ -276,28 +464,17 @@ export const DEMO_TRUSTPILOT = layout({
       dataMapping: [{ fromField: "reviewText", toField: "reviewText" }],
       animated: false,
     },
-    {
-      id: "d3-e3",
-      source: "d3-ai",
-      target: "d3-reply",
-      sourceHandle: "replyText",
-      targetHandle: "replyText",
-      dataMapping: [{ fromField: "replyText", toField: "replyText" }],
-      animated: false,
-    },
-    {
-      id: "d3-e4",
-      source: "d3-filter",
-      target: "d3-reply",
-      sourceHandle: "reviewId",
-      targetHandle: "reviewId",
-      dataMapping: [{ fromField: "reviewId", toField: "reviewId" }],
-      animated: false,
-    },
   ],
 });
 
-export const DEMO_PIPELINES = [DEMO_PRICE_MONITOR, DEMO_LINKEDIN_CRM, DEMO_TRUSTPILOT] as const;
+export const DEMO_PIPELINES = [
+  DEMO_PRICE_MONITOR,
+  DEMO_GITHUB_CRM,
+  DEMO_REDDIT_MONITOR,
+  DEMO_PRODUCT_HUNT,
+  DEMO_AIRBNB_LISTINGS,
+  DEMO_TRUSTPILOT,
+] as const;
 
 export type DemoPipelineId = (typeof DEMO_PIPELINES)[number]["id"];
 

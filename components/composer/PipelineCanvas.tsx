@@ -12,6 +12,8 @@ import ReactFlow, {
   ConnectionMode,
   Node,
   Edge,
+  NodeChange,
+  EdgeChange,
   BackgroundVariant,
   ReactFlowProvider,
   ReactFlowInstance,
@@ -79,6 +81,8 @@ export function PipelineCanvas() {
   const removeEdge = useComposerStore((s) => s.removeEdge);
   const flowInstance = useRef<ReactFlowInstance | null>(null);
   const [contextMenu, setContextMenu] = useState<{ nodeId: string; x: number; y: number } | null>(null);
+  const openConfirm = useComposerStore((s) => s.openConfirm);
+  const runStatusForDelete = useComposerStore((s) => s.runStatus);
 
   const orderedNodes = useMemo(() => {
     if (!pipeline) return [];
@@ -123,8 +127,8 @@ export function PipelineCanvas() {
     [pipeline?.edges]
   );
 
-  const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
-  const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
+  const [nodes, setNodes, onNodesChangeInner] = useNodesState(initialNodes);
+  const [edges, setEdges, onEdgesChangeInner] = useEdgesState(initialEdges);
   const [successFlash, setSuccessFlash] = useState(false);
 
   const prevNodeIds = useRef("");
@@ -209,6 +213,44 @@ export function PipelineCanvas() {
     [updateNode]
   );
 
+  const onNodesChange = useCallback(
+    (changes: NodeChange[]) => {
+      if (runStatusForDelete === "running") return;
+      const removals = changes.filter((c) => c.type === "remove");
+      const rest = changes.filter((c) => c.type !== "remove");
+      if (rest.length) onNodesChangeInner(rest);
+      if (removals.length) {
+        openConfirm({
+          title: "Remove step?",
+          message: `Remove ${removals.length} node${removals.length === 1 ? "" : "s"} from the pipeline?`,
+          confirmLabel: "Remove",
+          variant: "danger",
+          onConfirm: () => onNodesChangeInner(removals),
+        });
+      }
+    },
+    [onNodesChangeInner, openConfirm, runStatusForDelete]
+  );
+
+  const onEdgesChange = useCallback(
+    (changes: EdgeChange[]) => {
+      if (runStatusForDelete === "running") return;
+      const removals = changes.filter((c) => c.type === "remove");
+      const rest = changes.filter((c) => c.type !== "remove");
+      if (rest.length) onEdgesChangeInner(rest);
+      if (removals.length) {
+        openConfirm({
+          title: "Remove connection?",
+          message: `Remove ${removals.length} connection${removals.length === 1 ? "" : "s"}?`,
+          confirmLabel: "Remove",
+          variant: "danger",
+          onConfirm: () => onEdgesChangeInner(removals),
+        });
+      }
+    },
+    [onEdgesChangeInner, openConfirm, runStatusForDelete]
+  );
+
   const onNodesDelete = useCallback(
     (deleted: Node[]) => {
       deleted.forEach((n) => removeNode(n.id));
@@ -270,13 +312,13 @@ export function PipelineCanvas() {
           deleteKeyCode={["Backspace", "Delete"]}
           proOptions={{ hideAttribution: true }}
         >
-          <Background variant={BackgroundVariant.Dots} gap={18} size={1.2} color="#333355" />
+          <Background variant={BackgroundVariant.Dots} gap={18} size={1.2} color="#cbd5e1" />
           <Controls showInteractive={false} />
           <MiniMap
             pannable
             zoomable
-            nodeColor="#4f6ef7"
-            maskColor="rgba(10, 10, 15, 0.85)"
+            nodeColor="#2563eb"
+            maskColor="rgba(255, 255, 255, 0.85)"
           />
         </ReactFlow>
         {contextMenu && (

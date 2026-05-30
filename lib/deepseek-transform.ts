@@ -1,9 +1,16 @@
 import OpenAI from "openai";
 
-const client = new OpenAI({
-  apiKey: process.env.DEEPSEEK_API_KEY!,
-  baseURL: "https://api.deepseek.com",
-});
+let client: OpenAI | null = null;
+
+function getClient(): OpenAI {
+  if (!client) {
+    client = new OpenAI({
+      apiKey: process.env.DEEPSEEK_API_KEY!,
+      baseURL: "https://api.deepseek.com",
+    });
+  }
+  return client;
+}
 
 export async function transformWithDeepSeek(
   instruction: string,
@@ -13,7 +20,7 @@ export async function transformWithDeepSeek(
     throw new Error("DEEPSEEK_API_KEY is required for AI transform steps");
   }
 
-  const response = await client.chat.completions.create({
+  const response = await getClient().chat.completions.create({
     model: "deepseek-v4-flash",
     max_tokens: 1024,
     messages: [

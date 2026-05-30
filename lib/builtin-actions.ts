@@ -1,5 +1,5 @@
 import { transformWithDeepSeek } from "@/lib/deepseek-transform";
-import { ACTION_REGISTRY, getActionById } from "@/lib/action-registry";
+import { getActionById, getAllRegisteredActions } from "@/lib/action-registry";
 
 export function isBuiltinAction(actionId: string): boolean {
   return actionId.startsWith("wire.");
@@ -95,7 +95,7 @@ export function findClosestActionId(unknownId: string): string | undefined {
     unknownId.includes(p) || platform === p
   );
   if (matches[0]) {
-    return ACTION_REGISTRY.find((a) => a.platform === matches[0])?.id;
+    return getAllRegisteredActions().find((a) => a.platform === matches[0])?.id;
   }
   return undefined;
 }

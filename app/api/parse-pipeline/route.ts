@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { parsePipelineFromNL } from "@/lib/deepseek";
-import { ACTION_REGISTRY } from "@/lib/action-registry";
+import { BUILTIN_ACTIONS, registerAnakinActions } from "@/lib/action-registry";
+import { loadAnakinActions } from "@/lib/anakin-catalog";
 import { WireAction } from "@/types";
 import { nanoid } from "nanoid";
 import { autoLayoutNodes } from "@/lib/auto-layout";
@@ -9,10 +10,16 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const prompt: string = body.prompt;
-    const availableActions: WireAction[] =
+    let availableActions: WireAction[] =
       body.availableActions && body.availableActions.length > 0
         ? body.availableActions
-        : ACTION_REGISTRY;
+        : [];
+
+    if (availableActions.length === 0) {
+      const anakinActions = await loadAnakinActions();
+      registerAnakinActions(anakinActions);
+      availableActions = [...BUILTIN_ACTIONS, ...anakinActions];
+    }
 
     if (!prompt || prompt.trim().length === 0) {
       return NextResponse.json(

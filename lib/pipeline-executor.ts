@@ -2,9 +2,11 @@ import { Pipeline, PipelineRunOptions, PipelineExecutorEvent } from "@/types";
 import { topologicalSort, hasCycle } from "@/lib/topological-sort";
 import { resolveInputsWithAmbiguity } from "@/lib/resolve-inputs";
 import { runWireAction } from "@/lib/wire-client";
-import { getActionById } from "@/lib/action-registry";
+import { getActionById, registerAnakinActions } from "@/lib/action-registry";
+import { loadAnakinActions } from "@/lib/anakin-catalog";
 import { isBuiltinAction, runBuiltinAction, findClosestActionId } from "@/lib/builtin-actions";
 import { getServerCredentialsForNode } from "@/lib/server-credentials";
+import { validatePipelineBeforeRun } from "@/lib/pipeline-validation";
 
 export type ExecutorEmit = (
   event: PipelineExecutorEvent,
@@ -30,6 +32,7 @@ function stripGateKeys(
   const out = { ...merged };
   delete out.gateField;
   delete out.gateValue;
+  delete out.triggerData;
   if (config.gateField) delete out[config.gateField];
   return out;
 }
@@ -49,6 +52,16 @@ export async function executePipeline(
 
   const startTime = Date.now();
   const runId = crypto.randomUUID();
+
+  const anakinActions = await loadAnakinActions();
+  registerAnakinActions(anakinActions);
+
+  const preflightError = validatePipelineBeforeRun(pipeline, startFromNodeId);
+  if (preflightError) {
+    emit("pipeline_failed", { runId, error: preflightError });
+    return { success: false, nodeOutputs: initialNodeOutputs };
+  }
+
   if (hasCycle(pipeline.nodes, pipeline.edges)) {
     emit("pipeline_failed", {
       runId,
@@ -61,6 +74,7 @@ export async function executePipeline(
   const nodeOutputs: Record<string, Record<string, unknown>> = { ...initialNodeOutputs };
 
   let started = !startFromNodeId;
+  let ranAnyStep = false;
 
   for (const node of sorted) {
     if (!started) {
@@ -111,7 +125,6 @@ export async function executePipeline(
       emit("pipeline_paused", {
         runId,
         reason: "ambiguous_mapping",
-        nodeOutputs,
         nodeId: resolved.ambiguous.nodeId,
       });
       return { success: false, nodeOutputs };
@@ -156,6 +169,8 @@ export async function executePipeline(
     }
 
     emit("node_start", { nodeId: node.id, actionId: node.actionId });
+    const nodeStartTime = Date.now();
+    ranAnyStep = true;
 
     const nodeCreds =
       credentials[node.id] ??
@@ -182,7 +197,7 @@ export async function executePipeline(
         emit("node_complete", {
           nodeId: node.id,
           output,
-          durationMs: Date.now() - startTime,
+          durationMs: Date.now() - nodeStartTime,
         });
         lastError = null;
         break;
@@ -191,21 +206,26 @@ export async function executePipeline(
         const message = err instanceof Error ? err.message : "Unknown error";
         const is401 = message.includes("401") || message.includes("Unauthorized");
         const is429 = message.includes("429") || message.includes("Rate limit");
+        const is402 = message.includes("Insufficient credits");
         const isTimeout = message.includes("timed out") || message.includes("Timeout");
 
         if (is429 && attemptCount < maxAttempts) {
-          for (let s = 30; s > 0; s--) {
-            emit("rate_limit_wait", { nodeId: node.id, secondsRemaining: s });
-            await new Promise((r) => setTimeout(r, 1000));
-          }
-          emit("node_start", { nodeId: node.id, actionId: node.actionId });
-          continue;
+          emit("rate_limit_wait", { nodeId: node.id, secondsRemaining: 30 });
+          emit("pipeline_paused", {
+            runId,
+            reason: "rate_limit",
+            nodeId: node.id,
+            retryAfterSeconds: 30,
+            resumable: true,
+          });
+          return { success: false, nodeOutputs };
         }
 
         emit("node_error", {
           nodeId: node.id,
           error: message,
           is401,
+          is402,
           is429,
           isTimeout,
           retryable: is401 || isTimeout,
@@ -214,7 +234,7 @@ export async function executePipeline(
           runId,
           failedNodeId: node.id,
           error: message,
-          nodeOutputs,
+          resumable: true,
         });
         break;
       }
@@ -223,6 +243,22 @@ export async function executePipeline(
     if (lastError) return { success: false, nodeOutputs };
   }
 
-  emit("pipeline_complete", { runId, duration: Date.now() - startTime, nodeOutputs });
+  if (startFromNodeId && !started) {
+    emit("pipeline_failed", {
+      runId,
+      error: `Cannot resume: step "${startFromNodeId}" was not found in pipeline`,
+    });
+    return { success: false, nodeOutputs };
+  }
+
+  if (!ranAnyStep && !startFromNodeId) {
+    emit("pipeline_failed", {
+      runId,
+      error: "Pipeline did not run any steps",
+    });
+    return { success: false, nodeOutputs };
+  }
+
+  emit("pipeline_complete", { runId, duration: Date.now() - startTime });
   return { success: true, nodeOutputs };
 }

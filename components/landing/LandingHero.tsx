@@ -3,17 +3,13 @@ import { LandingHeroDecor } from "./LandingHeroDecor";
 
 /** Place assets in /public/landing/ — see comment in LandingHeroDecor usage */
 const HERO_ASSETS = {
-  left: "/landing/hero-deco-left.png",
-  right: "/landing/hero-deco-cubes.png",
+  left: "/landing/S22.png",
+  right: "/landing/H2.png",
 } as const;
 
 export function LandingHero() {
   return (
-    <section className="lp-hero">
-      <div className="lp-hero-pattern" aria-hidden />
-      <div className="lp-hero-glow" aria-hidden />
-
-      <div className="lp-container lp-hero-inner">
+    <div className="lp-container lp-hero-inner">
         <LandingHeroDecor src={HERO_ASSETS.left} className="lp-hero-deco lp-hero-deco--left" />
         <LandingHeroDecor src={HERO_ASSETS.right} className="lp-hero-deco lp-hero-deco--right" />
 
@@ -23,7 +19,8 @@ export function LandingHero() {
           </p>
 
           <h1 className="lp-hero-h1">
-            Build web automations in <span>plain English.</span>
+            <span className="lp-hero-h1-line">Build web automations</span><br />
+            <span className="lp-hero-h1-line">in <span>plain English</span></span>
           </h1>
 
           <p className="lp-hero-lead">
@@ -42,6 +39,5 @@ export function LandingHero() {
           </div>
         </div>
       </div>
-    </section>
   );
 }

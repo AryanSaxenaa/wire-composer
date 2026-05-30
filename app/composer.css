@@ -1,17 +1,17 @@
-/* Wire Composer — dark UI (build spec §2, Anakin design system) */
+/* Wire Composer — light SaaS UI */
 
 .composer-app {
-  --cmp-bg: #0a0a0f;
-  --cmp-surface: #0d0d14;
-  --cmp-elevated: #13131f;
-  --cmp-subtle: #1a1a2e;
-  --cmp-ink: #f0f0ff;
-  --cmp-body: #8888aa;
-  --cmp-muted: #555577;
-  --cmp-line: rgba(255, 255, 255, 0.08);
-  --cmp-line-strong: rgba(255, 255, 255, 0.15);
-  --cmp-blue: #4f6ef7;
-  --cmp-blue-soft: rgba(79, 110, 247, 0.2);
+  --cmp-bg: #ffffff;
+  --cmp-surface: #fafafa;
+  --cmp-elevated: #ffffff;
+  --cmp-subtle: #f1f5f9;
+  --cmp-ink: #0f172a;
+  --cmp-body: #475569;
+  --cmp-muted: #94a3b8;
+  --cmp-line: #e5e7eb;
+  --cmp-line-strong: #cbd5e1;
+  --cmp-blue: #2563eb;
+  --cmp-blue-soft: rgba(37, 99, 235, 0.12);
   --cmp-green: #22c55e;
   --cmp-green-soft: rgba(34, 197, 94, 0.15);
   --cmp-sidebar: 320px;
@@ -92,6 +92,13 @@
   color: var(--cmp-muted);
 }
 
+.cmp-unsaved-badge {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--cmp-amber, #d97706);
+  flex-shrink: 0;
+}
+
 .cmp-saved-badge {
   display: inline-flex;
   align-items: center;
@@ -151,7 +158,7 @@
 }
 
 .cmp-btn--primary:hover:not(:disabled) {
-  background: #3d5de0;
+  background: #1d4ed8;
 }
 
 /* ── Body layout ── */
