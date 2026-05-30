@@ -1,77 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { parsePipelineFromNL } from "@/lib/deepseek";
 import { ACTION_REGISTRY } from "@/lib/action-registry";
-import { PipelineNode, PipelineEdge, WireAction } from "@/types";
+import { WireAction } from "@/types";
 import { nanoid } from "nanoid";
-
-function autoLayout(nodes: PipelineNode[], edges: PipelineEdge[]): PipelineNode[] {
-  const depths = new Map<string, number>();
-  const children = new Map<string, string[]>();
-
-  nodes.forEach((n) => depths.set(n.id, -1));
-  nodes.forEach((n) => children.set(n.id, []));
-
-  edges.forEach((e) => {
-    const c = children.get(e.source);
-    if (c) c.push(e.target);
-  });
-
-  // BFS for depth
-  const roots = nodes.filter(
-    (n) => !edges.some((e) => e.target === n.id)
-  );
-  roots.forEach((r) => depths.set(r.id, 0));
-
-  const queue = [...roots];
-  while (queue.length > 0) {
-    const current = queue.shift()!;
-    const currentDepth = depths.get(current.id)!;
-    const kidList = children.get(current.id) || [];
-    kidList.forEach((kidId) => {
-      const kidDepth = depths.get(kidId);
-      if (kidDepth === undefined || kidDepth === -1 || kidDepth < currentDepth + 1) {
-        depths.set(kidId, currentDepth + 1);
-        const kidNode = nodes.find((n) => n.id === kidId);
-        if (kidNode) queue.push(kidNode);
-      }
-    });
-  }
-
-  // Assign default depth 0 for unvisited
-  nodes.forEach((n) => {
-    if ((depths.get(n.id) ?? -1) === -1) depths.set(n.id, 0);
-  });
-
-  // Group by depth
-  const byDepth = new Map<number, PipelineNode[]>();
-  nodes.forEach((n) => {
-    const d = depths.get(n.id) ?? 0;
-    if (!byDepth.has(d)) byDepth.set(d, []);
-    byDepth.get(d)!.push(n);
-  });
-
-  const SPACING_Y = 130;
-  const BASE_X = 380;
-  const BASE_Y = 40;
-
-  const result: PipelineNode[] = [];
-  const sortedDepths = [...byDepth.keys()].sort((a, b) => a - b);
-
-  sortedDepths.forEach((depth) => {
-    const layer = byDepth.get(depth)!;
-    layer.forEach((node, i) => {
-      result.push({
-        ...node,
-        position: {
-          x: BASE_X + i * 48,
-          y: BASE_Y + depth * SPACING_Y,
-        },
-      });
-    });
-  });
-
-  return result;
-}
+import { autoLayoutNodes } from "@/lib/auto-layout";
 
 export async function POST(req: NextRequest) {
   try {
@@ -105,7 +37,7 @@ export async function POST(req: NextRequest) {
       animated: false,
     }));
 
-    const positioned = autoLayout(nodes, edges);
+    const positioned = autoLayoutNodes(nodes, edges);
 
     return NextResponse.json({
       pipeline: {

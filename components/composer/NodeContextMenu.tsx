@@ -60,7 +60,7 @@ export function NodeContextMenu({ nodeId, x, y, onClose }: NodeContextMenuProps)
   return (
     <div ref={menuRef} className="cmp-context-menu" style={{ left: x, top: y }}>
       <button type="button" onClick={handleEdit}>
-        Inspect
+        Edit
       </button>
       <button type="button" onClick={handleDuplicate}>
         Duplicate

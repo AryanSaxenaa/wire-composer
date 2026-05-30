@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Pipeline } from "@/types";
 import { AppHeader } from "@/components/layout/AppHeader";
+import { Sidebar } from "@/components/layout/Sidebar";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { Spinner } from "@/components/ui/Spinner";
 import "../composer.css";
@@ -45,7 +46,9 @@ export default function PipelinesPage() {
   };
 
   return (
-    <div className="composer-app">
+    <div className="composer-app" style={{ flexDirection: "row" }}>
+      <Sidebar />
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
       <AppHeader
         title="Saved pipelines"
         action={
@@ -98,8 +101,14 @@ export default function PipelinesPage() {
                 </span>
                 <StatusPill status={p.lastRunStatus} />
                 <div className="cmp-table-actions">
+                  <Link
+                    href={`/pipelines/${p.id}?run=1`}
+                    className="cmp-btn cmp-btn--sm cmp-btn--primary"
+                  >
+                    Run
+                  </Link>
                   <Link href={`/pipelines/${p.id}`} className="cmp-btn cmp-btn--sm">
-                    Open
+                    Edit
                   </Link>
                   <button
                     type="button"
@@ -124,6 +133,7 @@ export default function PipelinesPage() {
         onConfirm={() => deleteId && handleDelete(deleteId)}
         onCancel={() => setDeleteId(null)}
       />
+      </div>
     </div>
   );
 }

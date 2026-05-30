@@ -14,7 +14,7 @@ export const WireActionSchema = z.object({
   platform: z.string(),
   name: z.string(),
   description: z.string(),
-  category: z.enum(["read", "write", "search", "monitor"]),
+  category: z.enum(["read", "write", "search", "monitor", "transform"]),
   requiresAuth: z.boolean(),
   inputFields: z.array(ActionFieldSchema),
   outputFields: z.array(ActionFieldSchema),

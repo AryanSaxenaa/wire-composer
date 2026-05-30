@@ -8,11 +8,11 @@
 
 | Item | Value |
 |------|-------|
-| Stack | Next.js 14 (App Router) · TypeScript · Tailwind CSS · Zustand · React Flow |
+| Stack | Next.js 16 (App Router) · React 19 · TypeScript · Tailwind CSS 4 · Zustand · React Flow |
 | Backend | Next.js API Routes (Node.js runtime) |
 | LLM | DeepSeek V4 Flash (`deepseek-v4-flash`) via OpenAI-compatible SDK |
 | Web Actions | Anakin Wire API (`https://api.anakin.io/v1`) |
-| Auth | Clerk (free tier) OR NextAuth.js with GitHub provider |
+| Auth | **None** — no login, signup, or user accounts |
 | Storage | Vercel KV (Redis) for pipeline persistence |
 | Deployment | Vercel |
 | Boilerplate | **None.** Scaffold fresh with `create-next-app`. No existing template matches exactly. |
@@ -104,13 +104,16 @@ Each pipeline node is a card with:
 wire-composer/
 ├── app/
 │   ├── layout.tsx                  # Root layout, font loading, providers
-│   ├── page.tsx                    # Landing / redirect to /composer
+│   ├── page.tsx                    # Public landing
+│   ├── composer.css                # Composer dark theme (scoped)
+│   ├── landing.css                 # Landing page styles
 │   ├── composer/
 │   │   └── page.tsx                # Main 3-panel composer UI
 │   ├── pipelines/
-│   │   ├── page.tsx                # Saved pipelines list
+│   │   ├── page.tsx                # Saved pipelines list (+ Sidebar)
 │   │   └── [id]/
-│   │       └── page.tsx            # Single pipeline view / edit
+│   │       ├── page.tsx            # Suspense wrapper
+│   │       └── PipelineViewClient.tsx  # Load KV pipeline; ?run=1 auto-runs
 │   └── api/
 │       ├── parse-pipeline/
 │       │   └── route.ts            # POST: NL → pipeline DAG via DeepSeek V4 Flash
@@ -121,10 +124,18 @@ wire-composer/
 │       │   │   └── route.ts        # GET: list available Wire actions from Anakin
 │       │   └── run-action/
 │       │       └── route.ts        # POST: execute single Wire action
+│       ├── cron/
+│       │   └── run-scheduled/
+│       │       └── route.ts        # Vercel Cron: run due scheduled pipelines
+│       ├── webhooks/
+│       │   └── [webhookId]/
+│       │       └── route.ts        # POST: trigger pipeline via webhook
 │       └── pipelines/
 │           ├── route.ts            # GET list, POST create
 │           └── [id]/
-│               └── route.ts        # GET, PUT, DELETE single pipeline
+│               ├── route.ts        # GET, PUT, DELETE single pipeline
+│               └── webhook/
+│                   └── route.ts    # POST: assign webhook ID + URL
 ├── components/
 │   ├── composer/
 │   │   ├── ComposerLayout.tsx      # 3-panel shell
@@ -133,37 +144,53 @@ wire-composer/
 │   │   ├── NodeInspector.tsx       # Right panel: node detail + credentials
 │   │   ├── PipelineNode.tsx        # Custom React Flow node component
 │   │   ├── PipelineEdge.tsx        # Custom animated edge component
-│   │   ├── RunStatusBar.tsx        # Bottom status bar during execution
-│   │   └── ExamplePipelines.tsx    # Clickable example workflow prompts
+│   │   ├── RunStatusBar.tsx        # Bottom run status + expandable step list
+│   │   ├── PipelineCanvasEmpty.tsx # Empty canvas placeholder
+│   │   ├── NodeContextMenu.tsx     # Edit / Duplicate / Remove
+│   │   ├── DemoPipelines.tsx       # Pre-built demo workflows (real Wire + built-in steps)
+│   │   └── ExamplePipelines.tsx    # Clickable NL example chips
 │   ├── ui/
 │   │   ├── Button.tsx
 │   │   ├── Input.tsx
 │   │   ├── Badge.tsx
 │   │   ├── Tooltip.tsx
 │   │   ├── Spinner.tsx
-│   │   ├── CodeBlock.tsx           # Syntax-highlighted output viewer
 │   │   └── Logo.tsx
 │   └── layout/
-│       ├── Sidebar.tsx
-│       └── TopBar.tsx
+│       ├── Sidebar.tsx             # Nav on /pipelines
+│       ├── TopBar.tsx              # Composer chrome
+│       └── AppHeader.tsx           # Library page header
 ├── lib/
-│   ├── deepseek.ts                 # DeepSeek client + pipeline parse prompt
-│   ├── wire-client.ts              # Anakin Wire API wrapper
-│   ├── pipeline-schema.ts          # Zod schemas for Pipeline, Node, Edge
-│   ├── action-registry.ts          # Local catalogue of known Wire actions
+│   ├── deepseek.ts                 # NL pipeline parse (DeepSeek)
+│   ├── deepseek-transform.ts       # wire.ai.transform
+│   ├── wire-client.ts              # Anakin Wire API + job polling
+│   ├── pipeline-executor.ts        # Shared run logic (SSE, cron, webhooks)
+│   ├── pipeline-store.ts           # Vercel KV CRUD + webhook index
+│   ├── topological-sort.ts         # Kahn sort + cycle detection
+│   ├── resolve-inputs.ts           # Data mapping + ambiguity detection
+│   ├── auto-layout.ts              # Left-to-right node positions after parse
+│   ├── sanitize-pipeline.ts        # Strip runtime fields before KV save
+│   ├── server-credentials.ts       # Env-based creds for cron/webhook
+│   ├── builtin-actions.ts          # wire.* built-in steps
+│   ├── demo-pipelines.ts           # Three demo DAGs
+│   ├── cron-utils.ts               # Cron due-date helpers
+│   ├── credentials-context.tsx     # Browser-session credentials (not Zustand)
+│   ├── pipeline-schema.ts          # Zod schemas
+│   ├── action-registry.ts          # Wire + built-in action catalogue
 │   └── store.ts                    # Zustand global state
 ├── hooks/
-│   ├── usePipelineParser.ts        # Calls /api/parse-pipeline, updates store
-│   ├── usePipelineRunner.ts        # Executes pipeline, streams status updates
-│   └── useWireActions.ts           # Fetches and caches Wire action catalogue
+│   ├── usePipelineParser.ts        # Wraps store.parseNLPrompt for NL panel
+│   ├── usePipelineRunner.ts        # SSE client: run, resume, retryNode, cancel
+│   └── useWireActions.ts           # Loads /api/wire/actions into store
 ├── types/
-│   └── index.ts                    # All shared TypeScript types
+│   └── index.ts
 ├── public/
-│   └── platform-icons/             # SVG icons for supported platforms
-├── .env.local                      # (gitignored) API keys
-├── tailwind.config.ts
+│   └── platform-icons/             # SVG per platform
+├── vercel.json                     # Cron schedule for /api/cron/run-scheduled
+├── postcss.config.mjs              # Tailwind CSS 4
 ├── next.config.ts
-└── package.json
+├── package.json
+└── .env.local                      # (gitignored)
 ```
 
 ---
@@ -573,10 +600,10 @@ export const ACTION_REGISTRY: WireAction[] = [
 
 Standard CRUD. Store pipelines in Vercel KV as JSON.
 
-Key pattern: `pipeline:{userId}:{pipelineId}`
+Key patterns: `pipeline:default:{pipelineId}`, `webhook:{webhookId}` → pipelineId
 
 ```typescript
-// GET /api/pipelines — list all pipelines for authenticated user
+// GET /api/pipelines — list all saved pipelines
 // POST /api/pipelines — create new pipeline, returns pipeline with generated ID
 // GET /api/pipelines/[id] — get single pipeline
 // PUT /api/pipelines/[id] — update pipeline (after editing nodes/edges)
@@ -597,7 +624,8 @@ Three-panel layout using CSS Grid:
 
 - NodeInspector panel is hidden by default and slides in from the right when a node is clicked
 - On mobile (< 768px): stack vertically, canvas takes full screen, panels are drawers
-- Top bar contains: Logo, Pipeline name (editable inline), Save button, Run button, Schedule button
+- Top bar contains: Logo, Pipeline name (editable inline), Save, Schedule, Deploy Webhook, Run
+- Bottom **RunStatusBar**: live run status, rate-limit countdown, Resume/Cancel, expandable per-step list (replaces a floating status card for less canvas clutter)
 
 ### 6.2 `NLInputPanel.tsx`
 
@@ -744,49 +772,20 @@ Only shown for nodes where `requiresAuth: true`:
 - Password input (type="password", with show/hide toggle)
 - Session cookie input (optional, for pre-authenticated sessions): collapsed behind a "Use saved session" toggle
 
-**Section 4: Output Preview**
-Only shown after a successful node run:
-- JSON tree viewer showing the node's output
-- Each field is a collapsible row
-- Copy button on each value
-- "Pass to..." button that opens an edge drawer for connecting this output to a downstream node
+**Section 4: Output preview**
+After a successful run: formatted JSON (`<pre>`) of `node.output`. Manual edge drawing on the canvas connects outputs to downstream inputs.
 
 ---
 
 ## 7. State Management (Zustand)
 
-`lib/store.ts` — single store for the whole application:
+`lib/store.ts` holds pipeline graph state, parse/run UI flags, toasts, `mappingOverrides` / `ambiguousMapping` for §12, and `parseNLPrompt()`.
 
-```typescript
-import { create } from 'zustand';
+- `setPipeline(p, { fromStorage?, keepRunState? })` — `keepRunState: true` after a run completes so node outputs are not cleared.
+- `clearPipeline()` — reset composer for **New** in the top bar.
+- Credentials are **not** in Zustand; use `lib/credentials-context.tsx`.
 
-interface ComposerStore {
-  // Pipeline state
-  pipeline: Pipeline | null;
-  setPipeline: (p: Pipeline) => void;
-  updateNode: (nodeId: string, updates: Partial<PipelineNode>) => void;
-  updateEdge: (edgeId: string, updates: Partial<PipelineEdge>) => void;
-  
-  // UI state
-  selectedNodeId: string | null;
-  setSelectedNodeId: (id: string | null) => void;
-  inspectorOpen: boolean;
-  setInspectorOpen: (open: boolean) => void;
-  
-  // Parse state
-  parseStatus: "idle" | "loading" | "success" | "error";
-  parseError: string | null;
-  
-  // Run state
-  runStatus: "idle" | "running" | "complete" | "failed";
-  runContext: RunContext | null;
-  
-  // Actions
-  parseNLPrompt: (prompt: string) => Promise<void>;
-  runPipeline: () => Promise<void>;
-  resetRun: () => void;
-}
-```
+Execution from the UI uses `usePipelineRunner().run()` (not `store.runPipeline`, which is a no-op stub).
 
 ---
 
@@ -806,16 +805,12 @@ interface ComposerStore {
 
 ### 8.2 `usePipelineRunner.ts`
 
-```typescript
-// When called:
-// 1. Validates that all required credential fields are filled across all nodes
-// 2. If not, returns { missingCredentials: [...] } so UI can highlight them
-// 3. Calls /api/run-pipeline with EventSource (SSE)
-// 4. On each SSE event, updates the corresponding node's status in the store
-// 5. On node_complete, updates node's output field in the store
-// 6. On waiting_for_input, surfaces a modal asking the user the clarification question
-// 7. On pipeline_complete or pipeline_failed, sets run status in store
-```
+- Validates auth-required nodes against `credentials-context`.
+- `POST /api/run-pipeline` with `fetch` + `ReadableStream` (SSE), not `EventSource`.
+- Handles events: `node_start`, `node_complete`, `node_skipped`, `node_error`, `rate_limit_wait`, `waiting_for_input`, `pipeline_paused`, `pipeline_complete`, `pipeline_failed`.
+- `resume()` — continue after ambiguous mapping or network pause (partial `nodeOutputs`).
+- `retryNode(nodeId)` — re-run from a failed step.
+- `cancel()` — `AbortController` on the fetch.
 
 ---
 
@@ -836,9 +831,12 @@ KV_REST_API_URL=...
 KV_REST_API_TOKEN=...
 KV_REST_API_READ_ONLY_TOKEN=...
 
-# Auth (if using Clerk)
-NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_...
-CLERK_SECRET_KEY=sk_...
+# Cron (Vercel Cron + manual trigger)
+CRON_SECRET=...                    # Bearer token for /api/cron/run-scheduled
+
+# Optional server-side credentials for cron/webhook runs (never stored in KV)
+WIRE_CRED_SLACK_TOKEN=...
+WIRE_CRED_LINKEDIN_PASSWORD=...
 
 # App
 NEXT_PUBLIC_APP_URL=http://localhost:3000
@@ -851,11 +849,11 @@ NEXT_PUBLIC_APP_URL=http://localhost:3000
 ```json
 {
   "dependencies": {
-    "next": "14.2.x",
-    "react": "18.x",
-    "react-dom": "18.x",
+    "next": "16.x",
+    "react": "19.x",
+    "react-dom": "19.x",
     "typescript": "5.x",
-    "tailwindcss": "3.x",
+    "tailwindcss": "4.x",
     "reactflow": "^11.11.x",
     "zustand": "^4.5.x",
     "zod": "^3.23.x",
@@ -863,14 +861,15 @@ NEXT_PUBLIC_APP_URL=http://localhost:3000
     "@vercel/kv": "^2.x",
     "nanoid": "^5.x",
     "clsx": "^2.x",
-    "tailwind-merge": "^2.x"
+    "tailwind-merge": "^2.x",
+    "cron-parser": "^4.x"
   },
   "devDependencies": {
     "@types/node": "20.x",
-    "@types/react": "18.x",
-    "@types/react-dom": "18.x",
-    "eslint": "8.x",
-    "eslint-config-next": "14.x"
+    "@types/react": "19.x",
+    "@types/react-dom": "19.x",
+    "eslint": "9.x",
+    "eslint-config-next": "16.x"
   }
 }
 ```
@@ -883,14 +882,12 @@ NEXT_PUBLIC_APP_URL=http://localhost:3000
 
 ### `/` (Landing / Home)
 
-If user is not authenticated: show a minimal landing page.
+Public landing page (no auth gate).
 - Full-width dark hero: "Build web automations in plain English."
 - Subheading: "Describe what you want. Get a live pipeline."
 - Large animated example (looping: type prompt → pipeline assembles → runs → outputs)
-- Single CTA button: "Start building →"
+- Single CTA button: "Start building →" → `/composer`
 - Below fold: three feature cards (Parse · Run · Schedule)
-
-If user is authenticated: redirect immediately to `/composer`.
 
 ### `/composer`
 
@@ -905,7 +902,7 @@ Saved pipelines list. Table layout:
 
 ### `/pipelines/[id]`
 
-Load a saved pipeline into the composer. Identical to `/composer` but pre-populated with the saved pipeline state.
+Loads a saved pipeline into the same `ComposerLayout` as `/composer`. Query `?run=1` triggers one automatic run after load (library **Run** button).
 
 ---
 
@@ -924,11 +921,11 @@ The pipeline runner must handle these failure cases gracefully:
 
 ---
 
-## 13. Scheduling & Webhooks (ship if time allows)
+## 13. Scheduling & Webhooks
 
 ### Schedule a pipeline
 
-After a successful pipeline run, a "Schedule" button appears in the top bar.
+The **Schedule** button is in the top bar (available whenever a pipeline is loaded).
 - Opens a modal with a cron expression builder (simple UI: Every X minutes/hours/days)
 - On save: stores the cron string on the Pipeline object
 - Background job implementation: Vercel Cron Jobs (defined in `vercel.json`)
@@ -956,115 +953,43 @@ A "Deploy as Webhook" button generates a unique webhook URL: `/api/webhooks/[web
 
 ---
 
-## 14. Boilerplate Decision
+## 14. Demo Pipeline Scripts
 
-**Do not use any boilerplate.** Scaffold with:
+Defined in `lib/demo-pipelines.ts` and loadable from the composer sidebar (**DEMO PIPELINES**). These are **not simulations**: each step calls the real Anakin Wire API (when `ANAKIN_API_KEY` is set) or built-in transform actions (`wire.data.extract`, `wire.condition.compare`, `wire.filter.reviews`, `wire.ai.transform`) that execute real logic server-side.
 
-```bash
-npx create-next-app@latest wire-composer \
-  --typescript \
-  --tailwind \
-  --eslint \
-  --app \
-  --src-dir=false \
-  --import-alias="@/*"
+Configure node inputs (URLs, channels) and credentials in the node inspector before Run. For cron/webhook/server runs without inspector credentials, set `WIRE_CRED_{PLATFORM}_*` env vars (see §9).
+
+### Demo Pipeline 1: "Competitor Price Monitor" (`demo-competitor-price-monitor`)
+```
+[amazon.product.read] → [wire.data.extract] → [wire.condition.compare] → [slack.message.send] (gated)
 ```
 
-The closest existing OSS skeleton would be `BuilderIO/visual-editing` or any React Flow demo — but both diverge enough from the required architecture that adapting them would take longer than building fresh. The React Flow integration is straightforward from their official docs. Start from the `create-next-app` output and build upward.
+### Demo Pipeline 2: "LinkedIn Prospect to CRM" (`demo-linkedin-notion-crm`)
+```
+[linkedin.search.people] → [linkedin.profile.read] → [wire.data.extract] → [notion.database.append]
+```
+
+### Demo Pipeline 3: "Trustpilot Review Responder" (`demo-trustpilot-responder`)
+```
+[trustpilot.reviews.read] → [wire.filter.reviews] → [wire.ai.transform] → [trustpilot.review.reply]
+```
+The AI step uses `wire.ai.transform` → DeepSeek V4 Flash mid-pipeline.
 
 ---
 
-## 15. Build Order (Recommended for 48h)
-
-Work in this exact order to always have a demoable state:
-
-**Hour 0–3: Foundation**
-- Scaffold Next.js app, configure Tailwind with color tokens from §2
-- Set up environment variables
-- Build `lib/wire-client.ts` — get a real Wire action running from a script
-- Build the action registry (`lib/action-registry.ts`) with 10–15 real Wire actions
-
-**Hour 3–6: LLM Pipeline Parser**
-- Build `lib/deepseek.ts` with the system prompt from §5.1
-- Build `/api/parse-pipeline` route
-- Test parsing 5 different natural language prompts → validate DAG output
-- Build `/api/wire/actions` route
-
-**Hour 6–10: Canvas Core**
-- Install React Flow, configure custom node and edge types
-- Build `PipelineNode.tsx` and `PipelineEdge.tsx`
-- Build `PipelineCanvas.tsx` with nodes rendering from store state
-- Wire the parser to the canvas: type a prompt → pipeline appears
-
-**Hour 10–14: Execution Engine**
-- Build topological sort utility
-- Build `/api/run-pipeline` SSE route
-- Build `usePipelineRunner.ts` hook
-- Test end-to-end: prompt → parse → run → outputs in node
-
-**Hour 14–18: Node Inspector + Credentials**
-- Build `NodeInspector.tsx` with all three sections
-- Connect credentials to the run context
-- Handle auth error states
-
-**Hour 18–22: Polish + Error Handling**
-- Implement all error states from §12
-- Add node animations (running pulse, success flash)
-- Build landing page
-- Build saved pipelines list
-
-**Hour 22–26: Save + Deploy**
-- Set up Vercel KV, implement pipeline CRUD
-- Deploy to Vercel
-- Test full flow on deployment
-
-**Hour 26–30: Buffer / Scheduling**
-- If everything works: implement scheduling
-- Fix any bugs found in deployed environment
-
-**Remaining time: Demo prep**
-- Build 3 showcase pipelines that run flawlessly
-- Record demo video
-
----
-
-## 16. Demo Pipeline Scripts (Must Work on Demo Day)
-
-These three pipelines must be pre-built, pre-credentialed in a demo account, and ready to run live:
-
-### Demo Pipeline 1: "Competitor Price Monitor"
-```
-[Amazon product page read] → [Extract price field] → [Compare to threshold] → [Post Slack message if lower]
-```
-4 nodes. Runs in ~8 seconds. Shows: read action + data passing + conditional + write action.
-
-### Demo Pipeline 2: "LinkedIn Prospect to CRM"
-```
-[LinkedIn search by keyword] → [Read each profile] → [Extract contact fields] → [POST to Notion database]
-```
-4 nodes. Shows authenticated read + iteration + write to a different platform.
-
-### Demo Pipeline 3: "Trustpilot Review Responder"
-```
-[Trustpilot reviews read] → [Filter 1-star reviews] → [Generate reply with DeepSeek] → [Post reply via Trustpilot write]
-```
-4 nodes. Shows: read → AI generation → write. The AI step is implemented as a custom "AI Transform" node type that calls DeepSeek V4 Flash mid-pipeline.
-
----
-
-## 17. Critical Implementation Notes for the AI IDE
+## 15. Critical Implementation Notes
 
 1. **React Flow node state sync**: React Flow manages its own node positions internally. Use `useNodesState` and `useEdgesState` from React Flow for the canvas, and sync changes back to Zustand store `onNodesChange` and `onEdgesChange`. Do not try to drive React Flow from Zustand directly — it creates circular update loops.
 
 2. **SSE in Next.js App Router**: Use `new ReadableStream` with a `TransformStream` for the SSE endpoint. Do not use the legacy `res.write()` approach from Pages Router. Set response headers `Content-Type: text/event-stream`, `Cache-Control: no-cache`, `Connection: keep-alive`.
 
-3. **Credentials never in client state**: Credentials should only live in component state (React `useState`) within `NodeInspector.tsx`. Never put credentials in Zustand store (which can be inspected via devtools) or in any persisted state. Pass them to the run API as a one-time POST body. The backend should never log them.
+3. **Credentials never in Zustand or KV**: Session credentials live in `lib/credentials-context.tsx` (ref, not persisted). `NodeInspector` mirrors them in local state per node. `sanitizePipelineForStorage()` clears `node.credentials` before save. Pass credentials only in the run POST body; never log them server-side.
 
 4. **Wire API error handling**: The Anakin Wire API may return job-style async responses for some actions (queue → poll). Wrap all Wire calls in a polling loop that checks status every 2 seconds for up to 30 seconds before declaring a timeout.
 
 5. **DeepSeek JSON mode**: Set `response_format: { type: "json_object" }` on every pipeline parse call AND ensure the word "json" appears in the system prompt (it does — see §5.1). Always parse the response through the Zod schema before trusting it. If DeepSeek returns empty content (a known occasional issue per their docs), retry once — do not surface the error to the user on first attempt. `deepseek-v4-flash` is fast enough for interactive use; fall back to `deepseek-v4-pro` only if Flash produces invalid JSON after 2 retries on a genuinely complex prompt.
 
-6. **React Flow edge animations**: Animated edges (showing data flowing during execution) use React Flow's `animated: true` prop on the edge object. Toggle this to `true` when the source node is running and `false` when complete. This is a 1-line state update — lean on it for demo visual impact.
+6. **React Flow edge animations**: Set `animated: true` on edges connected to the **currently running** node (source or target); clear when the step completes.
 
 7. **Auto-layout**: After the LLM parses a pipeline, compute node positions automatically using a simple left-to-right layout algorithm based on topological depth. Nodes at depth 0 get x=100, depth 1 get x=380, depth 2 get x=660, etc. All nodes at the same depth get evenly-spaced y positions. Apply a `fitView()` call after setting positions.
 

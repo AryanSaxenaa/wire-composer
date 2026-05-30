@@ -1,5 +1,12 @@
 import { create } from "zustand";
-import { Pipeline, PipelineNode, PipelineEdge, RunContext, WireAction } from "@/types";
+import {
+  Pipeline,
+  PipelineNode,
+  PipelineEdge,
+  RunContext,
+  WireAction,
+  AmbiguousMappingState,
+} from "@/types";
 
 type ToastType = "success" | "error" | "info";
 
@@ -12,7 +19,11 @@ interface ToastData {
 interface ComposerStore {
   pipeline: Pipeline | null;
   pipelinePersisted: boolean;
-  setPipeline: (p: Pipeline, options?: { fromStorage?: boolean }) => void;
+  setPipeline: (
+    p: Pipeline,
+    options?: { fromStorage?: boolean; keepRunState?: boolean }
+  ) => void;
+  clearPipeline: () => void;
   markPipelineDirty: () => void;
   updateNode: (nodeId: string, updates: Partial<PipelineNode>) => void;
   updateEdge: (edgeId: string, updates: Partial<PipelineEdge>) => void;
@@ -38,8 +49,18 @@ interface ComposerStore {
 
   runStatus: "idle" | "running" | "complete" | "failed";
   runContext: RunContext | null;
+  runPaused: boolean;
+  pausedNodeOutputs: Record<string, Record<string, unknown>> | null;
+  pausedFromNodeId: string | null;
+  ambiguousMapping: AmbiguousMappingState | null;
+  mappingOverrides: Record<string, Record<string, string>>;
+  rateLimitSeconds: number | null;
   setRunStatus: (s: ComposerStore["runStatus"]) => void;
   setRunContext: (ctx: RunContext | null) => void;
+  setRunPaused: (paused: boolean, outputs?: Record<string, Record<string, unknown>> | null, fromNodeId?: string | null) => void;
+  setAmbiguousMapping: (state: AmbiguousMappingState | null) => void;
+  resolveAmbiguousMapping: (fromField: string) => void;
+  setRateLimitSeconds: (n: number | null) => void;
 
   availableActions: WireAction[];
   setAvailableActions: (a: WireAction[]) => void;
@@ -49,21 +70,52 @@ interface ComposerStore {
   removeToast: (id: string) => void;
 
   parseNLPrompt: (prompt: string, actions: WireAction[]) => Promise<void>;
+  runPipeline: () => Promise<void>;
   resetRun: () => void;
 }
 
 export const useComposerStore = create<ComposerStore>((set, get) => ({
   pipeline: null,
   pipelinePersisted: false,
-  setPipeline: (p, options) =>
+  setPipeline: (p, options) => {
+    if (!options?.keepRunState) {
+      get().resetRun();
+      set({
+        pipeline: p,
+        pipelinePersisted: options?.fromStorage ?? false,
+        parseStatus: "success",
+        parseError: null,
+        clarificationNeeded: false,
+        clarificationQuestion: null,
+        mappingOverrides: {},
+        ambiguousMapping: null,
+        runPaused: false,
+        pausedNodeOutputs: null,
+        pausedFromNodeId: null,
+      });
+    } else {
+      set({
+        pipeline: p,
+        pipelinePersisted: options?.fromStorage ?? get().pipelinePersisted,
+      });
+    }
+  },
+  clearPipeline: () => {
+    get().resetRun();
     set({
-      pipeline: p,
-      pipelinePersisted: options?.fromStorage ?? false,
-      parseStatus: "success",
+      pipeline: null,
+      pipelinePersisted: false,
+      selectedNodeId: null,
+      inspectorOpen: false,
+      parseStatus: "idle",
       parseError: null,
       clarificationNeeded: false,
       clarificationQuestion: null,
-    }),
+      parseReasoning: null,
+      mappingOverrides: {},
+      ambiguousMapping: null,
+    });
+  },
   markPipelineDirty: () => set({ pipelinePersisted: false }),
   updateNode: (nodeId, updates) => {
     const p = get().pipeline;
@@ -100,6 +152,7 @@ export const useComposerStore = create<ComposerStore>((set, get) => ({
   removeNode: (nodeId) => {
     const p = get().pipeline;
     if (!p) return;
+    const selected = get().selectedNodeId;
     set({
       pipeline: {
         ...p,
@@ -107,6 +160,9 @@ export const useComposerStore = create<ComposerStore>((set, get) => ({
         edges: p.edges.filter((e) => e.source !== nodeId && e.target !== nodeId),
       },
       pipelinePersisted: false,
+      ...(selected === nodeId
+        ? { selectedNodeId: null, inspectorOpen: false }
+        : {}),
     });
   },
   addEdge: (edge) => {
@@ -138,8 +194,35 @@ export const useComposerStore = create<ComposerStore>((set, get) => ({
 
   runStatus: "idle",
   runContext: null,
+  runPaused: false,
+  pausedNodeOutputs: null,
+  pausedFromNodeId: null,
+  ambiguousMapping: null,
+  mappingOverrides: {},
+  rateLimitSeconds: null,
   setRunStatus: (s) => set({ runStatus: s }),
   setRunContext: (ctx) => set({ runContext: ctx }),
+  setRunPaused: (paused, outputs = null, fromNodeId = null) =>
+    set({
+      runPaused: paused,
+      pausedNodeOutputs: outputs,
+      pausedFromNodeId: fromNodeId,
+      runStatus: paused ? "running" : get().runStatus,
+    }),
+  setAmbiguousMapping: (state) => set({ ambiguousMapping: state }),
+  resolveAmbiguousMapping: (fromField) => {
+    const amb = get().ambiguousMapping;
+    if (!amb) return;
+    const overrides = { ...get().mappingOverrides };
+    if (!overrides[amb.nodeId]) overrides[amb.nodeId] = {};
+    overrides[amb.nodeId][amb.targetField] = fromField;
+    set({
+      mappingOverrides: overrides,
+      ambiguousMapping: null,
+      runPaused: false,
+    });
+  },
+  setRateLimitSeconds: (n) => set({ rateLimitSeconds: n }),
 
   availableActions: [],
   setAvailableActions: (a) => set({ availableActions: a }),
@@ -155,7 +238,13 @@ export const useComposerStore = create<ComposerStore>((set, get) => ({
   removeToast: (id) => set((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) })),
 
   parseNLPrompt: async (prompt, actions) => {
-    set({ parseStatus: "loading", parseError: null });
+    get().resetRun();
+    set({
+      parseStatus: "loading",
+      parseError: null,
+      mappingOverrides: {},
+      ambiguousMapping: null,
+    });
     try {
       const res = await fetch("/api/parse-pipeline", {
         method: "POST",
@@ -201,6 +290,10 @@ export const useComposerStore = create<ComposerStore>((set, get) => ({
     }
   },
 
+  runPipeline: async () => {
+    /* Implemented via usePipelineRunner().run() in client components */
+  },
+
   resetRun: () => {
     const p = get().pipeline;
     if (p) {
@@ -217,11 +310,21 @@ export const useComposerStore = create<ComposerStore>((set, get) => ({
         },
         runStatus: "idle",
         runContext: null,
+        runPaused: false,
+        pausedNodeOutputs: null,
+        pausedFromNodeId: null,
+        ambiguousMapping: null,
+        rateLimitSeconds: null,
       });
     } else {
       set({
         runStatus: "idle",
         runContext: null,
+        runPaused: false,
+        pausedNodeOutputs: null,
+        pausedFromNodeId: null,
+        ambiguousMapping: null,
+        rateLimitSeconds: null,
       });
     }
   },

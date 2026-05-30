@@ -20,6 +20,7 @@
 opencode/
 
 # Command Code
+.commandcode/
 .command-code/
 .commad-code/
 

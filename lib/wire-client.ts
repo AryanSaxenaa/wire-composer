@@ -1,5 +1,37 @@
 const ANAKIN_BASE = "https://api.anakin.io/v1";
 const WIRE_TIMEOUT_MS = 30_000;
+const POLL_INTERVAL_MS = 2_000;
+
+type WireRunBody = {
+  action: string;
+  inputs: Record<string, unknown>;
+  credentials: Record<string, string>;
+};
+
+function isPendingStatus(data: Record<string, unknown>): boolean {
+  const status = String(data.status ?? data.state ?? "").toLowerCase();
+  return ["pending", "queued", "running", "in_progress", "processing"].includes(status);
+}
+
+async function pollWireJob(
+  jobId: string,
+  startTime: number
+): Promise<Record<string, unknown>> {
+  while (Date.now() - startTime < WIRE_TIMEOUT_MS) {
+    await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
+
+    const response = await fetch(`${ANAKIN_BASE}/holocron/run/${jobId}`, {
+      headers: { "X-API-Key": process.env.ANAKIN_API_KEY! },
+    });
+
+    if (!response.ok) continue;
+
+    const data = (await response.json()) as Record<string, unknown>;
+    if (!isPendingStatus(data)) return data;
+  }
+
+  throw new Error("Wire action timed out after 30s");
+}
 
 export async function runWireAction(
   actionId: string,
@@ -22,22 +54,29 @@ export async function runWireAction(
         action: actionId,
         inputs,
         credentials,
-      }),
+      } satisfies WireRunBody),
       signal: controller.signal,
     });
 
-    const raw = await response.json().catch(() => ({}));
+    let raw = (await response.json().catch(() => ({}))) as Record<string, unknown>;
 
     if (!response.ok) {
       const status = response.status;
       if (status === 401) throw new Error("Unauthorized: Credentials invalid or expired");
       if (status === 429) throw new Error("Rate limit exceeded. Retry in 30s.");
-      throw new Error(raw.message || `Wire action failed: ${status}`);
+      throw new Error(String(raw.message || `Wire action failed: ${status}`));
+    }
+
+    if (isPendingStatus(raw)) {
+      const jobId = String(raw.jobId ?? raw.id ?? "");
+      if (jobId) {
+        raw = await pollWireJob(jobId, start);
+      }
     }
 
     return {
       success: true,
-      output: raw.output ?? raw,
+      output: (raw.output as Record<string, unknown>) ?? raw,
       rawResponse: raw,
       durationMs: Date.now() - start,
     };
@@ -59,5 +98,5 @@ export async function getWireActions(): Promise<unknown[]> {
   if (!response.ok) return [];
 
   const data = await response.json();
-  return data.actions ?? data ?? [];
+  return (data as { actions?: unknown[] }).actions ?? data ?? [];
 }

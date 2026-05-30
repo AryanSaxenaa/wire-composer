@@ -17,7 +17,7 @@ Rules:
 - Every edge must have explicit dataMapping entries connecting source output fields to target input fields.
 - If the prompt is ambiguous about a critical detail (e.g. "my account" — which platform?), set clarificationNeeded: true and write a specific clarificationQuestion.
 - Do not set clarificationNeeded: true for minor details — make a reasonable assumption and note it in reasoning.
-- Node positions: use placeholder positions {x:0,y:0}; the server will apply vertical auto-layout.
+- Node positions: lay out nodes in a left-to-right flow. Trigger node at x:100,y:200. Space subsequent nodes 280px apart on x axis (server may refine layout).
 - Set all node statuses to "idle".
 - Leave credentials as empty objects — the user will fill those in.
 - The name field should be a short, memorable title derived from the prompt (max 6 words).

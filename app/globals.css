@@ -82,6 +82,9 @@ body {
 .pipeline-node[data-status="waiting_input"] {
   border-left: 2px solid #f59e0b;
 }
+.pipeline-node--unknown {
+  border-color: #f59e0b !important;
+}
 
 @keyframes node-pulse {
   0%, 100% { box-shadow: 0 0 0 0 rgba(79, 110, 247, 0.2); }

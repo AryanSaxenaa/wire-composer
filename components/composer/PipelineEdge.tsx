@@ -14,36 +14,26 @@ function PipelineEdgeComponent({
   animated,
   style,
 }: EdgeProps) {
-  const [edgePath, labelX, labelY] = getSmoothStepPath({
+  const [edgePath] = getSmoothStepPath({
     sourceX,
     sourceY,
     sourcePosition,
     targetX,
     targetY,
     targetPosition,
-    borderRadius: 20,
+    borderRadius: 12,
   });
 
   return (
-    <>
-      <BaseEdge
-        id={id}
-        path={edgePath}
-        style={{
-          ...style,
-          stroke: animated ? "#2563eb" : "#93c5fd",
-          strokeWidth: 2,
-        }}
-      />
-      <circle
-        cx={labelX}
-        cy={labelY}
-        r={5}
-        fill="#ffffff"
-        stroke="#93c5fd"
-        strokeWidth={2}
-      />
-    </>
+    <BaseEdge
+      id={id}
+      path={edgePath}
+      style={{
+        ...style,
+        stroke: animated ? "#4f6ef7" : "rgba(79, 110, 247, 0.4)",
+        strokeWidth: animated ? 2 : 1.5,
+      }}
+    />
   );
 }
 

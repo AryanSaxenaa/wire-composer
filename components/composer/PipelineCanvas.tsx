@@ -20,7 +20,7 @@ import "reactflow/dist/style.css";
 import { PipelineNode } from "@/components/composer/PipelineNode";
 import { PipelineEdge } from "@/components/composer/PipelineEdge";
 import { NodeContextMenu } from "@/components/composer/NodeContextMenu";
-import { ComposerStatusCard } from "@/components/composer/ComposerStatusCard";
+import { PipelineCanvasEmpty } from "@/components/composer/PipelineCanvasEmpty";
 import { useComposerStore } from "@/lib/store";
 import { getActionById } from "@/lib/action-registry";
 import { PipelineNode as PipelineNodeType, PipelineEdge as PipelineEdgeType } from "@/types";
@@ -68,7 +68,12 @@ function toFlowEdge(edge: PipelineEdgeType): Edge {
 
 export function PipelineCanvas() {
   const pipeline = useComposerStore((s) => s.pipeline);
+  const runStatus = useComposerStore((s) => s.runStatus);
+  const runContext = useComposerStore((s) => s.runContext);
+  const runningNodeId = runContext?.currentNodeId ?? null;
   const updateNode = useComposerStore((s) => s.updateNode);
+  const setSelectedNodeId = useComposerStore((s) => s.setSelectedNodeId);
+  const setInspectorOpen = useComposerStore((s) => s.setInspectorOpen);
   const addEdgeToStore = useComposerStore((s) => s.addEdge);
   const removeNode = useComposerStore((s) => s.removeNode);
   const removeEdge = useComposerStore((s) => s.removeEdge);
@@ -120,8 +125,10 @@ export function PipelineCanvas() {
 
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
+  const [successFlash, setSuccessFlash] = useState(false);
 
   const prevNodeIds = useRef("");
+  const staggerApplied = useRef(false);
 
   useEffect(() => {
     const storeNodes = (pipeline?.nodes || []).map((n) =>
@@ -135,11 +142,40 @@ export function PipelineCanvas() {
     const currentIds = storeNodes.map((n) => n.id).sort().join(",");
     if (currentIds !== prevNodeIds.current) {
       prevNodeIds.current = currentIds;
+      staggerApplied.current = false;
       setTimeout(() => {
         flowInstance.current?.fitView({ padding: 0.35, duration: 400 });
       }, 150);
     }
+
+    if (!staggerApplied.current && storeNodes.length > 0) {
+      staggerApplied.current = true;
+      setNodes(
+        storeNodes.map((n, i) => ({
+          ...n,
+          className: "animate-stagger-in",
+          style: { animationDelay: `${i * 150}ms` },
+        }))
+      );
+    }
   }, [pipeline?.nodes, pipeline?.edges, stepIndexMap, setNodes, setEdges]);
+
+  useEffect(() => {
+    if (runStatus !== "complete") return;
+    setSuccessFlash(true);
+    const t = setTimeout(() => setSuccessFlash(false), 800);
+    return () => clearTimeout(t);
+  }, [runStatus]);
+
+  useEffect(() => {
+    const dim = runStatus === "running" && runningNodeId;
+    setNodes((nds) =>
+      nds.map((n) => ({
+        ...n,
+        className: dim && n.id !== runningNodeId ? "dimmed" : n.className?.replace(" dimmed", ""),
+      }))
+    );
+  }, [runStatus, runningNodeId, setNodes]);
 
   const onConnect = useCallback(
     (connection: Connection) => {
@@ -199,10 +235,14 @@ export function PipelineCanvas() {
     []
   );
 
+  const isEmpty = !pipeline || pipeline.nodes.length === 0;
+
   return (
     <div className="cmp-canvas-wrap">
+      {isEmpty && <PipelineCanvasEmpty />}
       <ReactFlowProvider>
         <ReactFlow
+          className={isEmpty ? "cmp-flow--empty" : undefined}
           nodes={nodes}
           edges={edges}
           onNodesChange={onNodesChange}
@@ -213,6 +253,15 @@ export function PipelineCanvas() {
           onEdgesDelete={onEdgesDelete}
           onInit={onInit}
           onNodeContextMenu={onNodeContextMenu}
+          onPaneClick={() => {
+            setContextMenu(null);
+            setSelectedNodeId(null);
+            setInspectorOpen(false);
+          }}
+          onNodeClick={(_e, node) => {
+            setSelectedNodeId(node.id);
+            setInspectorOpen(true);
+          }}
           nodeTypes={nodeTypes}
           edgeTypes={edgeTypes}
           connectionMode={ConnectionMode.Loose}
@@ -221,13 +270,13 @@ export function PipelineCanvas() {
           deleteKeyCode={["Backspace", "Delete"]}
           proOptions={{ hideAttribution: true }}
         >
-          <Background variant={BackgroundVariant.Dots} gap={18} size={1.2} color="#d1d5db" />
+          <Background variant={BackgroundVariant.Dots} gap={18} size={1.2} color="#333355" />
           <Controls showInteractive={false} />
           <MiniMap
             pannable
             zoomable
-            nodeColor="#93c5fd"
-            maskColor="rgba(249, 250, 251, 0.85)"
+            nodeColor="#4f6ef7"
+            maskColor="rgba(10, 10, 15, 0.85)"
           />
         </ReactFlow>
         {contextMenu && (
@@ -239,7 +288,7 @@ export function PipelineCanvas() {
           />
         )}
       </ReactFlowProvider>
-      <ComposerStatusCard />
+      {successFlash && <div className="canvas-success-flash" aria-hidden />}
     </div>
   );
 }

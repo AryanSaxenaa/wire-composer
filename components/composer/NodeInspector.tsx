@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useEffect } from "react";
 import { useComposerStore } from "@/lib/store";
 import { getActionById } from "@/lib/action-registry";
 import { useCredentials } from "@/lib/credentials-context";
+import { usePipelineRunner } from "@/hooks/usePipelineRunner";
 
 export function NodeInspector() {
   const selectedNodeId = useComposerStore((s) => s.selectedNodeId);
@@ -11,7 +12,10 @@ export function NodeInspector() {
   const setInspectorOpen = useComposerStore((s) => s.setInspectorOpen);
   const pipeline = useComposerStore((s) => s.pipeline);
   const updateNode = useComposerStore((s) => s.updateNode);
+  const ambiguousMapping = useComposerStore((s) => s.ambiguousMapping);
+  const resolveAmbiguousMapping = useComposerStore((s) => s.resolveAmbiguousMapping);
   const { setNodeCredentials, getAllCredentials } = useCredentials();
+  const { retryNode, resume } = usePipelineRunner();
 
   const node = useMemo(
     () => pipeline?.nodes.find((n) => n.id === selectedNodeId) || null,
@@ -32,6 +36,16 @@ export function NodeInspector() {
   const [credentialPassword, setCredentialPassword] = useState(savedCreds?.password || "");
   const [credentialSession, setCredentialSession] = useState(savedCreds?.sessionCookie || "");
   const [showSession, setShowSession] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+
+  useEffect(() => {
+    if (!node) return;
+    const creds = getAllCredentials()[node.id];
+    setCredentialUsername(creds?.username ?? "");
+    setCredentialPassword(creds?.password ?? "");
+    setCredentialSession(creds?.sessionCookie ?? "");
+    setShowSession(!!creds?.sessionCookie);
+  }, [node?.id, getAllCredentials]);
 
   const handleConfigChange = useCallback(
     (key: string, value: string) => {
@@ -61,7 +75,7 @@ export function NodeInspector() {
         <button
           type="button"
           onClick={() => setInspectorOpen(false)}
-          className="text-[#94a3b8] hover:text-[#0f172a] text-lg leading-none"
+          className="text-[#8888aa] hover:text-[#f0f0ff] text-lg leading-none"
           aria-label="Close inspector"
         >
           ×
@@ -69,6 +83,45 @@ export function NodeInspector() {
       </div>
 
       <div className="cmp-inspector-body">
+        {node.status === "error" && node.error?.includes("Unauthorized") && (
+          <div className="cmp-alert cmp-alert--error mx-4 mt-3">
+            Credentials invalid or expired. Update credentials below and retry.
+          </div>
+        )}
+
+        {node.status === "error" && node.error?.includes("timed out") && (
+          <div className="cmp-inspector-section">
+            <button type="button" className="cmp-btn cmp-btn--primary w-full" onClick={() => retryNode(node.id)}>
+              Retry this step
+            </button>
+          </div>
+        )}
+
+        {ambiguousMapping && ambiguousMapping.nodeId === node.id && (
+          <div className="cmp-inspector-section">
+            <h4>Which field?</h4>
+            <p className="text-xs text-[#8888aa] mb-2">
+              Multiple upstream fields match &ldquo;{ambiguousMapping.targetField}&rdquo;. Pick one:
+            </p>
+            <div className="flex flex-col gap-2">
+              {ambiguousMapping.options.map((opt) => (
+                <button
+                  key={`${opt.sourceNodeId}-${opt.fromField}`}
+                  type="button"
+                  className="cmp-btn text-left"
+                  onClick={() => {
+                    resolveAmbiguousMapping(opt.fromField);
+                    resume();
+                  }}
+                >
+                  <span className="font-mono text-xs">{opt.fromField}</span>
+                  <span className="text-[#8888aa] text-xs ml-2">from {opt.sourceLabel}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         <div className="cmp-inspector-section">
           <div className="flex items-center gap-2 mb-2">
             <span className="cmp-tag">{node.platform}</span>
@@ -127,8 +180,7 @@ export function NodeInspector() {
         {action?.requiresAuth && (
           <div className="cmp-inspector-section">
             <div className="cmp-alert cmp-alert--warn mb-3">
-              Credentials are sent only when you run the pipeline and are kept in this browser
-              session.
+              Credentials are used only for this run and never stored on our servers.
             </div>
             <h4>Credentials</h4>
             <div className="flex flex-col gap-3">
@@ -148,14 +200,23 @@ export function NodeInspector() {
                 <label className="block text-[11px] font-medium text-[#64748b] mb-1">
                   Password
                 </label>
-                <input
-                  id="cred-password"
-                  type="password"
-                  className="cmp-field-input"
-                  placeholder="••••••••"
-                  value={credentialPassword}
-                  onChange={(e) => setCredentialPassword(e.target.value)}
-                />
+                <div className="flex gap-2">
+                  <input
+                    id="cred-password"
+                    type={showPassword ? "text" : "password"}
+                    className="cmp-field-input flex-1"
+                    placeholder="••••••••"
+                    value={credentialPassword}
+                    onChange={(e) => setCredentialPassword(e.target.value)}
+                  />
+                  <button
+                    type="button"
+                    className="cmp-btn"
+                    onClick={() => setShowPassword((v) => !v)}
+                  >
+                    {showPassword ? "Hide" : "Show"}
+                  </button>
+                </div>
               </div>
               <button
                 type="button"
@@ -182,6 +243,14 @@ export function NodeInspector() {
                 Store credentials for run
               </button>
             </div>
+          </div>
+        )}
+
+        {node.status === "error" && !node.error?.includes("timed out") && (
+          <div className="cmp-inspector-section">
+            <button type="button" className="cmp-btn w-full" onClick={() => retryNode(node.id)}>
+              Retry this step
+            </button>
           </div>
         )}
 

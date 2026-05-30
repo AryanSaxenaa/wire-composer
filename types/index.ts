@@ -12,7 +12,7 @@ export interface WireAction {
   platform: string;
   name: string;
   description: string;
-  category: "read" | "write" | "search" | "monitor";
+  category: "read" | "write" | "search" | "monitor" | "transform";
   requiresAuth: boolean;
   inputFields: ActionField[];
   outputFields: ActionField[];
@@ -71,6 +71,14 @@ export interface Pipeline {
   lastRunStatus?: "success" | "error" | "partial";
   schedule?: string;
   webhookId?: string;
+  lastScheduledRunAt?: string;
+  isDemo?: boolean;
+}
+
+export interface AmbiguousMappingState {
+  nodeId: string;
+  targetField: string;
+  options: { fromField: string; sourceNodeId: string; sourceLabel: string }[];
 }
 
 export interface PipelineParseResult {
@@ -103,13 +111,27 @@ export interface RunContext {
   log: RunLogEntry[];
 }
 
+export type PipelineExecutorEvent =
+  | "node_start"
+  | "node_complete"
+  | "node_error"
+  | "node_skipped"
+  | "waiting_for_input"
+  | "rate_limit_wait"
+  | "pipeline_paused"
+  | "pipeline_complete"
+  | "pipeline_failed";
+
 export interface SSEEvent {
-  event:
-    | "node_start"
-    | "node_complete"
-    | "node_error"
-    | "waiting_for_input"
-    | "pipeline_complete"
-    | "pipeline_failed";
+  event: PipelineExecutorEvent;
   data: Record<string, unknown>;
+}
+
+export interface PipelineRunOptions {
+  pipeline: Pipeline;
+  credentials?: Record<string, Record<string, string>>;
+  triggerData?: Record<string, unknown>;
+  startFromNodeId?: string;
+  initialNodeOutputs?: Record<string, Record<string, unknown>>;
+  mappingOverrides?: Record<string, Record<string, string>>;
 }

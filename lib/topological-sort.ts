@@ -1,6 +1,6 @@
 import { PipelineNode, PipelineEdge } from "@/types";
 
-export function topologicalSort(
+function kahnSort(
   nodes: PipelineNode[],
   edges: PipelineEdge[]
 ): PipelineNode[] {
@@ -45,6 +45,25 @@ export function topologicalSort(
   return sorted;
 }
 
+export function hasCycle(nodes: PipelineNode[], edges: PipelineEdge[]): boolean {
+  if (edges.length === 0) return false;
+  return kahnSort(nodes, edges).length < nodes.length;
+}
+
+export function topologicalSort(
+  nodes: PipelineNode[],
+  edges: PipelineEdge[]
+): PipelineNode[] {
+  const sorted = kahnSort(nodes, edges);
+  if (sorted.length < nodes.length) {
+    const inSorted = new Set(sorted.map((n) => n.id));
+    nodes.forEach((n) => {
+      if (!inSorted.has(n.id)) sorted.push(n);
+    });
+  }
+  return sorted;
+}
+
 export function resolveInputs(
   node: PipelineNode,
   edges: PipelineEdge[],
@@ -64,7 +83,6 @@ export function resolveInputs(
       }
     });
 
-    // If no explicit data mappings, try auto-mapping by matching field names
     if (edge.dataMapping.length === 0) {
       const sourceFields = Object.keys(sourceOutput);
       sourceFields.forEach((field) => {
