@@ -160,7 +160,6 @@ const FOOTER_COLUMNS = [
     title: "Product",
     links: [
       { href: "#features", label: "Features" },
-      { href: "#pricing", label: "Pricing" },
       { href: "/composer", label: "Composer" },
       { href: "/pipelines", label: "Pipelines" },
     ],
@@ -168,25 +167,8 @@ const FOOTER_COLUMNS = [
   {
     title: "Resources",
     links: [
-      { href: "#docs", label: "Documentation" },
-      { href: "#blog", label: "Blog" },
+      { href: "https://github.com/your-username/wire-composer", label: "GitHub" },
       { href: "#how-it-works", label: "How it works" },
-    ],
-  },
-  {
-    title: "Company",
-    links: [
-      { href: "#", label: "About" },
-      { href: "#", label: "Careers" },
-      { href: "#", label: "Contact" },
-    ],
-  },
-  {
-    title: "Legal",
-    links: [
-      { href: "#", label: "Privacy" },
-      { href: "#", label: "Terms" },
-      { href: "#", label: "Security" },
     ],
   },
 ] as const;
@@ -215,9 +197,6 @@ export function LandingPage() {
             </nav>
 
             <div className="lp-header-actions">
-              <Link href="/composer" className="lp-link-signin">
-                Log in
-              </Link>
               <Link href="/composer" className="lp-btn lp-btn--sm">
                 Get Started →
               </Link>
@@ -312,9 +291,8 @@ export function LandingPage() {
             </div>
             <div className="lp-cta-action">
               <Link href="/composer" className="lp-btn lp-btn--lg">
-                Start Building for Free →
+                Start Building →
               </Link>
-              <p className="lp-cta-note">No credit card required</p>
             </div>
             <img src="/landing/H2.png" alt="" className="lp-cta-cubes" />
           </div>
