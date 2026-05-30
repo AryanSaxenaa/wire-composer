@@ -17,6 +17,7 @@ export function NodeContextMenu({ nodeId, x, y, onClose }: NodeContextMenuProps)
   const removeNode = useComposerStore((s) => s.removeNode);
   const addNode = useComposerStore((s) => s.addNode);
   const setSelectedNodeId = useComposerStore((s) => s.setSelectedNodeId);
+  const setInspectorOpen = useComposerStore((s) => s.setInspectorOpen);
 
   useEffect(() => {
     const handle = (e: MouseEvent) => {
@@ -30,6 +31,7 @@ export function NodeContextMenu({ nodeId, x, y, onClose }: NodeContextMenuProps)
 
   const handleEdit = () => {
     setSelectedNodeId(nodeId);
+    setInspectorOpen(true);
     onClose();
   };
 
@@ -40,38 +42,31 @@ export function NodeContextMenu({ nodeId, x, y, onClose }: NodeContextMenuProps)
 
   const handleDuplicate = () => {
     const node = pipeline?.nodes.find((n) => n.id === nodeId);
-    if (!node) { onClose(); return; }
+    if (!node) {
+      onClose();
+      return;
+    }
     addNode({
       ...node,
       id: nanoid(),
-      position: { x: node.position.x + 50, y: node.position.y + 50 },
+      position: { x: node.position.x + 48, y: node.position.y + 48 },
+      status: "idle",
+      output: undefined,
+      error: undefined,
     });
     onClose();
   };
 
   return (
-    <div
-      ref={menuRef}
-      className="fixed z-[100] py-1 min-w-[140px] bg-bg-elevated border border-border-default rounded-md shadow-lg"
-      style={{ left: x, top: y }}
-    >
-      <button
-        onClick={handleEdit}
-        className="w-full text-left px-3 py-1.5 text-xs text-text-primary hover:bg-bg-subtle font-mono"
-      >
-        Edit
+    <div ref={menuRef} className="cmp-context-menu" style={{ left: x, top: y }}>
+      <button type="button" onClick={handleEdit}>
+        Inspect
       </button>
-      <button
-        onClick={handleDuplicate}
-        className="w-full text-left px-3 py-1.5 text-xs text-text-primary hover:bg-bg-subtle font-mono"
-      >
+      <button type="button" onClick={handleDuplicate}>
         Duplicate
       </button>
-      <div className="border-t border-border-default my-1" />
-      <button
-        onClick={handleRemove}
-        className="w-full text-left px-3 py-1.5 text-xs text-error hover:bg-bg-subtle font-mono"
-      >
+      <hr />
+      <button type="button" className="cmp-context-menu--danger" onClick={handleRemove}>
         Remove
       </button>
     </div>

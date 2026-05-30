@@ -174,3 +174,56 @@ body {
 ::-webkit-scrollbar-thumb:hover {
   background: #333355;
 }
+
+/* Toasts (global — used on all routes) */
+.cmp-toast-host {
+  position: fixed;
+  top: 64px;
+  right: 16px;
+  z-index: 90;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  pointer-events: none;
+}
+
+.cmp-toast {
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  font-size: 13px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.1);
+  color: #0f172a;
+  animation: cmp-slide-in 0.2s ease-out;
+}
+
+.cmp-toast--success {
+  border-color: #bbf7d0;
+  background: #f0fdf4;
+}
+
+.cmp-toast--error {
+  border-color: #fecaca;
+  background: #fef2f2;
+}
+
+.cmp-toast--info {
+  border-color: #bfdbfe;
+  background: #eff6ff;
+}
+
+@keyframes cmp-slide-in {
+  from {
+    opacity: 0;
+    transform: translateX(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}

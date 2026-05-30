@@ -11,7 +11,9 @@ interface ToastData {
 
 interface ComposerStore {
   pipeline: Pipeline | null;
-  setPipeline: (p: Pipeline) => void;
+  pipelinePersisted: boolean;
+  setPipeline: (p: Pipeline, options?: { fromStorage?: boolean }) => void;
+  markPipelineDirty: () => void;
   updateNode: (nodeId: string, updates: Partial<PipelineNode>) => void;
   updateEdge: (edgeId: string, updates: Partial<PipelineEdge>) => void;
   addNode: (node: PipelineNode) => void;
@@ -52,38 +54,48 @@ interface ComposerStore {
 
 export const useComposerStore = create<ComposerStore>((set, get) => ({
   pipeline: null,
-  setPipeline: (p) =>
+  pipelinePersisted: false,
+  setPipeline: (p, options) =>
     set({
       pipeline: p,
+      pipelinePersisted: options?.fromStorage ?? false,
       parseStatus: "success",
       parseError: null,
       clarificationNeeded: false,
       clarificationQuestion: null,
     }),
+  markPipelineDirty: () => set({ pipelinePersisted: false }),
   updateNode: (nodeId, updates) => {
     const p = get().pipeline;
     if (!p) return;
+    const statusOnly = Object.keys(updates).every((k) =>
+      ["status", "output", "error"].includes(k)
+    );
     set({
       pipeline: {
         ...p,
         nodes: p.nodes.map((n) => (n.id === nodeId ? { ...n, ...updates } : n)),
       },
+      ...(statusOnly ? {} : { pipelinePersisted: false }),
     });
   },
   updateEdge: (edgeId, updates) => {
     const p = get().pipeline;
     if (!p) return;
+    const animOnly =
+      Object.keys(updates).length === 1 && "animated" in updates;
     set({
       pipeline: {
         ...p,
         edges: p.edges.map((e) => (e.id === edgeId ? { ...e, ...updates } : e)),
       },
+      ...(animOnly ? {} : { pipelinePersisted: false }),
     });
   },
   addNode: (node) => {
     const p = get().pipeline;
     if (!p) return;
-    set({ pipeline: { ...p, nodes: [...p.nodes, node] } });
+    set({ pipeline: { ...p, nodes: [...p.nodes, node] }, pipelinePersisted: false });
   },
   removeNode: (nodeId) => {
     const p = get().pipeline;
@@ -94,17 +106,18 @@ export const useComposerStore = create<ComposerStore>((set, get) => ({
         nodes: p.nodes.filter((n) => n.id !== nodeId),
         edges: p.edges.filter((e) => e.source !== nodeId && e.target !== nodeId),
       },
+      pipelinePersisted: false,
     });
   },
   addEdge: (edge) => {
     const p = get().pipeline;
     if (!p) return;
-    set({ pipeline: { ...p, edges: [...p.edges, edge] } });
+    set({ pipeline: { ...p, edges: [...p.edges, edge] }, pipelinePersisted: false });
   },
   removeEdge: (edgeId) => {
     const p = get().pipeline;
     if (!p) return;
-    set({ pipeline: { ...p, edges: p.edges.filter((e) => e.id !== edgeId) } });
+    set({ pipeline: { ...p, edges: p.edges.filter((e) => e.id !== edgeId) }, pipelinePersisted: false });
   },
 
   selectedNodeId: null,
@@ -174,6 +187,7 @@ export const useComposerStore = create<ComposerStore>((set, get) => ({
       };
       set({
         pipeline,
+        pipelinePersisted: false,
         parseStatus: "success",
         clarificationNeeded: false,
         clarificationQuestion: null,

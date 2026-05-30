@@ -20,14 +20,22 @@ import "reactflow/dist/style.css";
 import { PipelineNode } from "@/components/composer/PipelineNode";
 import { PipelineEdge } from "@/components/composer/PipelineEdge";
 import { NodeContextMenu } from "@/components/composer/NodeContextMenu";
+import { ComposerStatusCard } from "@/components/composer/ComposerStatusCard";
 import { useComposerStore } from "@/lib/store";
+import { getActionById } from "@/lib/action-registry";
 import { PipelineNode as PipelineNodeType, PipelineEdge as PipelineEdgeType } from "@/types";
 import { nanoid } from "nanoid";
 
-const nodeTypes = { wireAction: PipelineNode, trigger: PipelineNode, condition: PipelineNode, output: PipelineNode };
+const nodeTypes = {
+  wireAction: PipelineNode,
+  trigger: PipelineNode,
+  condition: PipelineNode,
+  output: PipelineNode,
+};
 const edgeTypes = { dataFlow: PipelineEdge };
 
-function toFlowNode(node: PipelineNodeType): Node {
+function toFlowNode(node: PipelineNodeType, stepIndex: number): Node {
+  const action = getActionById(node.actionId);
   return {
     id: node.id,
     type: node.type as string,
@@ -40,7 +48,8 @@ function toFlowNode(node: PipelineNodeType): Node {
       config: node.config,
       output: node.output,
       error: node.error,
-      inputFields: [],
+      stepIndex,
+      description: action?.description || "",
     },
   };
 }
@@ -59,18 +68,50 @@ function toFlowEdge(edge: PipelineEdgeType): Edge {
 
 export function PipelineCanvas() {
   const pipeline = useComposerStore((s) => s.pipeline);
-  const runStatus = useComposerStore((s) => s.runStatus);
   const updateNode = useComposerStore((s) => s.updateNode);
   const addEdgeToStore = useComposerStore((s) => s.addEdge);
   const removeNode = useComposerStore((s) => s.removeNode);
   const removeEdge = useComposerStore((s) => s.removeEdge);
   const flowInstance = useRef<ReactFlowInstance | null>(null);
-  const [showSuccessFlash, setShowSuccessFlash] = useState(false);
   const [contextMenu, setContextMenu] = useState<{ nodeId: string; x: number; y: number } | null>(null);
 
+  const orderedNodes = useMemo(() => {
+    if (!pipeline) return [];
+    const edges = pipeline.edges;
+    const sorted: PipelineNodeType[] = [];
+    const visited = new Set<string>();
+    const roots = pipeline.nodes.filter((n) => !edges.some((e) => e.target === n.id));
+    const queue = [...roots];
+    while (queue.length) {
+      const n = queue.shift()!;
+      if (visited.has(n.id)) continue;
+      visited.add(n.id);
+      sorted.push(n);
+      edges
+        .filter((e) => e.source === n.id)
+        .forEach((e) => {
+          const child = pipeline.nodes.find((c) => c.id === e.target);
+          if (child) queue.push(child);
+        });
+    }
+    pipeline.nodes.forEach((n) => {
+      if (!visited.has(n.id)) sorted.push(n);
+    });
+    return sorted;
+  }, [pipeline]);
+
+  const stepIndexMap = useMemo(() => {
+    const map = new Map<string, number>();
+    orderedNodes.forEach((n, i) => map.set(n.id, i + 1));
+    return map;
+  }, [orderedNodes]);
+
   const initialNodes = useMemo(
-    () => (pipeline?.nodes || []).map(toFlowNode),
-    [pipeline?.nodes]
+    () =>
+      (pipeline?.nodes || []).map((n) =>
+        toFlowNode(n, stepIndexMap.get(n.id) || 1)
+      ),
+    [pipeline?.nodes, stepIndexMap]
   );
   const initialEdges = useMemo(
     () => (pipeline?.edges || []).map(toFlowEdge),
@@ -80,67 +121,25 @@ export function PipelineCanvas() {
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
 
-  // Sync from store to flow state when pipeline changes
   const prevNodeIds = useRef("");
-  const prevNodeCount = useRef(0);
+
   useEffect(() => {
-    const storeNodes = (pipeline?.nodes || []).map(toFlowNode);
+    const storeNodes = (pipeline?.nodes || []).map((n) =>
+      toFlowNode(n, stepIndexMap.get(n.id) || 1)
+    );
     const storeEdges = (pipeline?.edges || []).map(toFlowEdge);
 
     setNodes(storeNodes);
     setEdges(storeEdges);
 
-    // Only fitView when the node set actually changes (not on status updates during execution)
     const currentIds = storeNodes.map((n) => n.id).sort().join(",");
     if (currentIds !== prevNodeIds.current) {
       prevNodeIds.current = currentIds;
-
-      // §6.3: Stagger-in animation for newly parsed nodes
-      if (storeNodes.length > 0 && storeNodes.length !== prevNodeCount.current) {
-        prevNodeCount.current = storeNodes.length;
-        setTimeout(() => {
-          const allNodeEls = document.querySelectorAll(".react-flow__node");
-          allNodeEls.forEach((el, i) => {
-            (el as HTMLElement).style.animation = `stagger-in 0.3s ease-out ${i * 0.15}s both`;
-          });
-        }, 50);
-      }
-
       setTimeout(() => {
-        flowInstance.current?.fitView({ padding: 0.3, duration: 400 });
+        flowInstance.current?.fitView({ padding: 0.35, duration: 400 });
       }, 150);
     }
-  }, [pipeline?.nodes, pipeline?.edges, setNodes, setEdges]);
-
-  // §6.3: Success flash
-  useEffect(() => {
-    if (runStatus === "complete") {
-      setShowSuccessFlash(true);
-      const timer = setTimeout(() => setShowSuccessFlash(false), 900);
-      return () => clearTimeout(timer);
-    }
-  }, [runStatus]);
-
-  // §6.3: Dim nodes that aren't running during pipeline execution
-  const isRunning = runStatus === "running";
-  useEffect(() => {
-    if (isRunning) {
-      const allNodeEls = document.querySelectorAll(".react-flow__node");
-      allNodeEls.forEach((el) => {
-        const inner = el.querySelector(".pipeline-node");
-        const status = inner?.getAttribute("data-status");
-        if (status !== "running") {
-          el.classList.add("dimmed");
-        } else {
-          el.classList.remove("dimmed");
-        }
-      });
-    } else {
-      document.querySelectorAll(".react-flow__node.dimmed").forEach((el) => {
-        el.classList.remove("dimmed");
-      });
-    }
-  }, [isRunning, nodes]);
+  }, [pipeline?.nodes, pipeline?.edges, stepIndexMap, setNodes, setEdges]);
 
   const onConnect = useCallback(
     (connection: Connection) => {
@@ -201,43 +200,46 @@ export function PipelineCanvas() {
   );
 
   return (
-    <ReactFlowProvider>
-      <ReactFlow
-        nodes={nodes}
-        edges={edges}
-        onNodesChange={onNodesChange}
-        onEdgesChange={onEdgesChange}
-        onConnect={onConnect}
-        onNodeDragStop={onNodeDragStop}
-        onNodesDelete={onNodesDelete}
-        onEdgesDelete={onEdgesDelete}
-        onInit={onInit}
-        onNodeContextMenu={onNodeContextMenu}
-        nodeTypes={nodeTypes}
-        edgeTypes={edgeTypes}
-        connectionMode={ConnectionMode.Loose}
-        fitView
-        fitViewOptions={{ padding: 0.3 }}
-        className="bg-bg-base"
-        deleteKeyCode={["Backspace", "Delete"]}
-      >
-        <Background variant={BackgroundVariant.Dots} gap={20} size={1} color="rgba(255,255,255,0.04)" />
-        <Controls className="[&>button]:bg-bg-surface [&>button]:border-border-default [&>button]:text-text-secondary [&>button]:fill-text-secondary hover:[&>button]:bg-bg-elevated" />
-        <MiniMap
-          nodeColor="#111122"
-          maskColor="rgba(10,10,15,0.8)"
-          style={{ backgroundColor: "#0d0d14" }}
-        />
-      </ReactFlow>
-      {showSuccessFlash && <div className="canvas-success-flash" />}
-      {contextMenu && (
-        <NodeContextMenu
-          nodeId={contextMenu.nodeId}
-          x={contextMenu.x}
-          y={contextMenu.y}
-          onClose={() => setContextMenu(null)}
-        />
-      )}
-    </ReactFlowProvider>
+    <div className="cmp-canvas-wrap">
+      <ReactFlowProvider>
+        <ReactFlow
+          nodes={nodes}
+          edges={edges}
+          onNodesChange={onNodesChange}
+          onEdgesChange={onEdgesChange}
+          onConnect={onConnect}
+          onNodeDragStop={onNodeDragStop}
+          onNodesDelete={onNodesDelete}
+          onEdgesDelete={onEdgesDelete}
+          onInit={onInit}
+          onNodeContextMenu={onNodeContextMenu}
+          nodeTypes={nodeTypes}
+          edgeTypes={edgeTypes}
+          connectionMode={ConnectionMode.Loose}
+          fitView
+          fitViewOptions={{ padding: 0.35 }}
+          deleteKeyCode={["Backspace", "Delete"]}
+          proOptions={{ hideAttribution: true }}
+        >
+          <Background variant={BackgroundVariant.Dots} gap={18} size={1.2} color="#d1d5db" />
+          <Controls showInteractive={false} />
+          <MiniMap
+            pannable
+            zoomable
+            nodeColor="#93c5fd"
+            maskColor="rgba(249, 250, 251, 0.85)"
+          />
+        </ReactFlow>
+        {contextMenu && (
+          <NodeContextMenu
+            nodeId={contextMenu.nodeId}
+            x={contextMenu.x}
+            y={contextMenu.y}
+            onClose={() => setContextMenu(null)}
+          />
+        )}
+      </ReactFlowProvider>
+      <ComposerStatusCard />
+    </div>
   );
 }

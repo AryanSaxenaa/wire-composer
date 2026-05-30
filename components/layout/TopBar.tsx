@@ -1,191 +1,22 @@
 "use client";
 
-import { useState, useCallback, useEffect, useRef } from "react";
+import Link from "next/link";
+import { useState, useCallback, useEffect } from "react";
 import { useComposerStore } from "@/lib/store";
-import { getActionById } from "@/lib/action-registry";
-import { useCredentials } from "@/lib/credentials-context";
-import { Button } from "@/components/ui/Button";
+import { usePipelineRunner } from "@/hooks/usePipelineRunner";
+import { LandingLogo } from "@/components/landing/LandingLogo";
 import { Spinner } from "@/components/ui/Spinner";
 
 export function TopBar() {
   const pipeline = useComposerStore((s) => s.pipeline);
+  const pipelinePersisted = useComposerStore((s) => s.pipelinePersisted);
   const parseStatus = useComposerStore((s) => s.parseStatus);
-  const runStatus = useComposerStore((s) => s.runStatus);
-  const addToast = useComposerStore((s) => s.addToast);
-  const updateNode = useComposerStore((s) => s.updateNode);
-  const setSelectedNodeId = useComposerStore((s) => s.setSelectedNodeId);
   const [name, setName] = useState(pipeline?.name || "");
-  const { getAllCredentials } = useCredentials();
-  const abortRef = useRef<AbortController | null>(null);
+  const { run, cancel, status: runStatus } = usePipelineRunner();
 
   useEffect(() => {
     if (pipeline?.name) setName(pipeline.name);
   }, [pipeline?.name]);
-
-  const handleRun = useCallback(async () => {
-    if (!pipeline) return;
-
-    const credentials = getAllCredentials();
-
-    // Validate credentials for auth-required nodes
-    for (const node of pipeline.nodes) {
-      const action = getActionById(node.actionId);
-      if (action?.requiresAuth && !credentials[node.id]) {
-        addToast("error", `Missing credentials for "${node.label}". Open the node inspector.`);
-        updateNode(node.id, { status: "error", error: "Credentials required" });
-        setSelectedNodeId(node.id);
-        return;
-      }
-    }
-
-    useComposerStore.getState().setRunStatus("running");
-    const controller = new AbortController();
-    abortRef.current = controller;
-
-    const runId = crypto.randomUUID();
-    useComposerStore.getState().setRunContext({
-      pipelineId: pipeline.id,
-      runId,
-      startedAt: new Date().toISOString(),
-      nodeOutputs: {},
-      currentNodeId: null,
-      status: "running",
-      log: [],
-    });
-
-    try {
-      const res = await fetch("/api/run-pipeline", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ pipeline, credentials }),
-        signal: controller.signal,
-      });
-
-      if (!res.ok || !res.body) {
-        useComposerStore.getState().setRunStatus("failed");
-        addToast("error", "Pipeline failed to start");
-        return;
-      }
-
-      const reader = res.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = "";
-      let currentEvent: string | null = null;
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split("\n");
-        buffer = lines.pop() || "";
-
-        for (const line of lines) {
-          if (line.startsWith("event: ")) {
-            currentEvent = line.slice(7).trim();
-          } else if (line.startsWith("data: ") && currentEvent) {
-            try {
-              const eventData = JSON.parse(line.slice(6));
-              const store = useComposerStore.getState();
-
-              switch (currentEvent) {
-                case "node_start":
-                  store.updateNode(eventData.nodeId as string, { status: "running" });
-                  // §6.3: Animate edges flowing into the running node
-                  if (store.pipeline) {
-                    store.pipeline.edges
-                      .filter((e) => e.target === eventData.nodeId)
-                      .forEach((e) => store.updateEdge(e.id, { animated: true }));
-                  }
-                  break;
-                case "node_complete":
-                  store.updateNode(eventData.nodeId as string, {
-                    status: "success",
-                    output: eventData.output as Record<string, unknown>,
-                  });
-                  // §6.3: Stop edge animations when node completes
-                  if (store.pipeline) {
-                    store.pipeline.edges
-                      .filter((e) => e.target === eventData.nodeId)
-                      .forEach((e) => store.updateEdge(e.id, { animated: false }));
-                  }
-                  break;
-                case "node_error": {
-                  const nodeId = eventData.nodeId as string;
-                  const errMsg = eventData.error as string;
-                  store.updateNode(nodeId, {
-                    status: "error",
-                    error: errMsg,
-                  });
-
-                  // §12: Error handling — 401 → open inspector to credentials
-                  if (errMsg.includes("401") || errMsg.includes("Unauthorized")) {
-                    store.setSelectedNodeId(nodeId);
-                    store.updateNode(nodeId, {
-                      error: "Credentials invalid or expired",
-                    });
-                    addToast("error", `Credentials invalid — check node "${nodeId}"`);
-                  }
-                  // §12: 429 → flag as rate limited
-                  if (errMsg.includes("429") || errMsg.includes("Rate limit")) {
-                    store.updateNode(nodeId, {
-                      error: "Rate limited — retrying in 30s",
-                    });
-                    addToast("error", `Rate limited on "${nodeId}". Will retry once.`);
-                  }
-                  break;
-                }
-                case "waiting_for_input":
-                  store.updateNode(eventData.nodeId as string, {
-                    status: "waiting_input",
-                    error: eventData.question as string,
-                  });
-                  addToast("info", `Pipeline needs input on "${eventData.nodeId}"`);
-                  break;
-                case "pipeline_complete": {
-                  const p = store.pipeline;
-                  if (p) {
-                    store.setPipeline({
-                      ...p,
-                      lastRunAt: new Date().toISOString(),
-                      lastRunStatus: "success",
-                    });
-                  }
-                  store.setRunStatus("complete");
-                  addToast("success", "Pipeline completed successfully");
-                  break;
-                }
-                case "pipeline_failed":
-                  store.setRunStatus("failed");
-                  const p2 = store.pipeline;
-                  if (p2) {
-                    store.setPipeline({
-                      ...p2,
-                      lastRunAt: new Date().toISOString(),
-                      lastRunStatus: "error",
-                    });
-                  }
-                  addToast("error", `Pipeline failed at node "${eventData.failedNodeId}"`);
-                  break;
-              }
-            } catch {
-              // Ignore parse errors
-            }
-            currentEvent = null;
-          }
-        }
-      }
-    } catch (err: unknown) {
-      if (err instanceof DOMException && err.name === "AbortError") {
-        useComposerStore.getState().resetRun();
-      } else {
-        useComposerStore.getState().setRunStatus("failed");
-        addToast("error", "Connection lost — check your network");
-      }
-    } finally {
-      abortRef.current = null;
-    }
-  }, [pipeline, getAllCredentials, addToast, updateNode, setSelectedNodeId]);
 
   const handleSave = useCallback(async () => {
     if (!pipeline) return;
@@ -199,66 +30,100 @@ export function TopBar() {
       });
       const data = await res.json();
       if (data.pipeline) {
-        useComposerStore.getState().setPipeline(data.pipeline);
-        addToast("success", "Pipeline saved");
+        useComposerStore.getState().setPipeline(data.pipeline, { fromStorage: true });
+        useComposerStore.getState().addToast("success", "Pipeline saved");
       } else {
-        addToast("error", data.error || "Save failed");
+        useComposerStore.getState().addToast("error", data.error || "Save failed");
       }
     } catch {
-      addToast("error", "Save failed — network error");
+      useComposerStore.getState().addToast("error", "Save failed — check KV configuration");
     }
-  }, [pipeline, name, addToast]);
+  }, [pipeline, name]);
+
+  const handleNameBlur = () => {
+    if (!pipeline) return;
+    const trimmed = name.trim() || "Untitled pipeline";
+    if (trimmed !== pipeline.name) {
+      useComposerStore.setState({
+        pipeline: { ...pipeline, name: trimmed },
+        pipelinePersisted: false,
+      });
+    }
+  };
+
+  const showSaved = pipeline && pipelinePersisted;
 
   return (
-    <header className="h-12 bg-bg-surface border-b border-border-default flex items-center justify-between px-4 flex-shrink-0">
-      <div className="flex items-center gap-3">
-        <span className="text-sm font-bold text-accent-primary font-mono tracking-tight">
-          wire
-        </span>
-        <span className="text-text-muted text-sm">/</span>
-        <input
-          value={name || pipeline?.name || ""}
-          onChange={(e) => setName(e.target.value)}
-          placeholder="Pipeline name..."
-          className="text-sm text-text-primary bg-transparent border-none outline-none font-mono placeholder:text-text-muted min-w-[140px]"
-        />
+    <header className="cmp-topbar">
+      <div className="cmp-topbar-left">
+        <Link href="/" className="cmp-topbar-brand">
+          <LandingLogo />
+          <span>wire</span>
+        </Link>
+        <div className="cmp-topbar-divider" />
+        <div className="cmp-topbar-crumb">
+          <Link href="/pipelines" className="cmp-topbar-crumb-brand hover:underline">
+            Pipelines
+          </Link>
+          <span>/</span>
+          <input
+            value={name || pipeline?.name || ""}
+            onChange={(e) => setName(e.target.value)}
+            onBlur={handleNameBlur}
+            placeholder="Untitled pipeline"
+            className="cmp-topbar-name"
+            disabled={!pipeline}
+          />
+          {showSaved && (
+            <span className="cmp-saved-badge">
+              <span className="cmp-saved-dot">
+                <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+                  <path d="M1.5 5.5l2 2.5 5-5" stroke="#10b981" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </span>
+              Saved
+            </span>
+          )}
+        </div>
       </div>
 
-      <div className="flex items-center gap-2">
+      <div className="cmp-topbar-actions">
         {parseStatus === "loading" && (
-          <span className="flex items-center gap-1.5 text-xs text-text-muted font-mono">
+          <span className="flex items-center gap-1.5 text-xs text-[#64748b]">
             <Spinner size="sm" /> Parsing...
           </span>
         )}
-        <Button
-          size="sm"
-          variant="secondary"
-          onClick={handleSave}
-          disabled={!pipeline}
-        >
+        <Link href="/pipelines" className="cmp-btn">
+          Library
+        </Link>
+        <button type="button" className="cmp-btn" onClick={handleSave} disabled={!pipeline}>
           Save
-        </Button>
-        <Button
-          size="sm"
-          variant="secondary"
-          disabled={!pipeline || runStatus !== "complete"}
-        >
-          Schedule
-        </Button>
-        <Button
-          size="sm"
-          onClick={handleRun}
+        </button>
+        {runStatus === "running" ? (
+          <button type="button" className="cmp-btn" onClick={cancel}>
+            Cancel
+          </button>
+        ) : null}
+        <button
+          type="button"
+          className="cmp-btn cmp-btn--primary"
+          onClick={() => run()}
           disabled={!pipeline || runStatus === "running"}
         >
           {runStatus === "running" ? (
             <>
-              <Spinner size="sm" className="mr-1.5" />
+              <Spinner size="sm" />
               Running
             </>
           ) : (
-            "Run"
+            <>
+              <svg width="10" height="12" viewBox="0 0 10 12" fill="none" aria-hidden>
+                <path d="M1 1v10l8-5.5L1 1z" fill="currentColor" />
+              </svg>
+              Run
+            </>
           )}
-        </Button>
+        </button>
       </div>
     </header>
   );

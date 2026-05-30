@@ -1,20 +1,10 @@
 "use client";
 
-import { useEffect } from "react";
 import { ComposerLayout } from "@/components/composer/ComposerLayout";
-import { useComposerStore } from "@/lib/store";
+import { useWireActions } from "@/hooks/useWireActions";
+import "../composer.css";
 
 export default function ComposerPage() {
-  const setAvailableActions = useComposerStore((s) => s.setAvailableActions);
-
-  useEffect(() => {
-    fetch("/api/wire/actions")
-      .then((r) => r.json())
-      .then((data) => {
-        if (data.actions) setAvailableActions(data.actions);
-      })
-      .catch(() => {});
-  }, [setAvailableActions]);
-
+  useWireActions();
   return <ComposerLayout />;
 }

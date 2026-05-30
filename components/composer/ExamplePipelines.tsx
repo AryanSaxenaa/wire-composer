@@ -4,29 +4,38 @@ interface ExamplePipelinesProps {
   onSelect: (text: string) => void;
 }
 
-const EXAMPLES = [
-  "Monitor Glassdoor reviews → post to Slack",
-  "Search LinkedIn for prospects → export to CSV",
-  "Track competitor prices on Amazon → alert if changed",
-  "Read new GitHub issues → create Linear tickets",
-  "Scrape job postings → draft applications",
-  "Monitor Trustpilot → reply via LinkedIn message",
+const EXAMPLES: { text: string; icon: string; tone: string }[] = [
+  { text: "Monitor Glassdoor reviews → post to Slack", icon: "🌐", tone: "blue" },
+  { text: "Search LinkedIn for prospects → export to CSV", icon: "in", tone: "purple" },
+  { text: "Track competitor prices on Amazon → alert if changed", icon: "a", tone: "orange" },
+  { text: "Read new GitHub issues → create Jira tickets", icon: "⌘", tone: "gray" },
+  { text: "Scrape job postings → draft applications", icon: "📋", tone: "green" },
+  { text: "Monitor Trustpilot → reply via LinkedIn message", icon: "★", tone: "pink" },
 ];
 
 export function ExamplePipelines({ onSelect }: ExamplePipelinesProps) {
   return (
-    <div className="p-4 border-t border-border-default">
-      <p className="text-[10px] text-text-muted font-mono uppercase tracking-wider mb-2">
-        Examples
+    <div className="cmp-examples">
+      <p className="cmp-kicker">EXAMPLES</p>
+      <p className="text-[11px] text-[#94a3b8] mb-3 leading-snug">
+        Click an example to fill the prompt and parse immediately.
       </p>
-      <div className="flex flex-wrap gap-1.5">
+      <div className="cmp-examples-list">
         {EXAMPLES.map((ex) => (
           <button
-            key={ex}
-            onClick={() => onSelect(ex)}
-            className="text-[10px] px-2 py-1.5 rounded bg-bg-subtle text-text-secondary hover:bg-bg-elevated hover:text-text-primary transition-colors text-left font-mono"
+            key={ex.text}
+            type="button"
+            onClick={() => onSelect(ex.text)}
+            className="cmp-example-card"
           >
-            {ex}
+            <span className={`cmp-example-icon cmp-example-icon--${ex.tone}`}>
+              {ex.icon === "in" ? (
+                <span style={{ fontSize: 11, fontWeight: 800, color: "#0a66c2" }}>in</span>
+              ) : (
+                ex.icon
+              )}
+            </span>
+            <span className="cmp-example-text">{ex.text}</span>
           </button>
         ))}
       </div>

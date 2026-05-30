@@ -2,12 +2,14 @@
 
 import { useCallback, useState } from "react";
 import { useComposerStore } from "@/lib/store";
-import { Button } from "@/components/ui/Button";
 import { Spinner } from "@/components/ui/Spinner";
 import { ExamplePipelines } from "@/components/composer/ExamplePipelines";
 
+const DEFAULT_PROMPT =
+  "Every morning, check my competitor's pricing page, compare it to my Shopify store, and post a Slack message if anything changed.";
+
 export function NLInputPanel() {
-  const [prompt, setPrompt] = useState("");
+  const [prompt, setPrompt] = useState(DEFAULT_PROMPT);
   const parseNLPrompt = useComposerStore((s) => s.parseNLPrompt);
   const parseStatus = useComposerStore((s) => s.parseStatus);
   const parseError = useComposerStore((s) => s.parseError);
@@ -20,64 +22,63 @@ export function NLInputPanel() {
     parseNLPrompt(prompt.trim(), availableActions);
   }, [prompt, parseNLPrompt, availableActions]);
 
-  const handleExample = useCallback((example: string) => {
-    setPrompt(example);
-  }, []);
+  const handleExample = useCallback(
+    (example: string) => {
+      setPrompt(example);
+      parseNLPrompt(example, availableActions);
+    },
+    [parseNLPrompt, availableActions]
+  );
 
   return (
-    <div className="flex flex-col h-full bg-bg-surface border-r border-border-default">
-      <div className="p-4 border-b border-border-default">
-        <h2 className="text-sm font-semibold text-text-primary font-mono tracking-wide uppercase">
-          Describe your workflow
-        </h2>
-      </div>
+    <aside className="cmp-sidebar">
+      <div className="cmp-sidebar-scroll">
+        <div className="cmp-sidebar-section">
+          <p className="cmp-kicker">
+            <span aria-hidden>✨</span> DESCRIBE YOUR WORKFLOW
+          </p>
 
-      <div className="flex-1 flex flex-col p-4 gap-4 overflow-auto">
-        <textarea
-          value={prompt}
-          onChange={(e) => setPrompt(e.target.value)}
-          placeholder="Every morning, check my competitor's pricing page, compare it to my Shopify store, and post a Slack message if anything changed..."
-          className="flex-1 min-h-[120px] max-h-[240px] w-full p-3 rounded-md bg-bg-base border border-border-default text-text-primary text-sm placeholder:text-text-muted resize-none focus:outline-none focus:border-accent-primary focus:ring-1 focus:ring-accent-glow font-mono text-xs leading-relaxed"
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
-              handleParse();
-            }
-          }}
-        />
+          <textarea
+            value={prompt}
+            onChange={(e) => setPrompt(e.target.value)}
+            placeholder={DEFAULT_PROMPT}
+            className="cmp-textarea"
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) handleParse();
+            }}
+          />
 
-        <Button
-          onClick={handleParse}
-          disabled={!prompt.trim() || parseStatus === "loading"}
-          size="md"
-          className="w-full"
-        >
-          {parseStatus === "loading" ? (
-            <>
-              <Spinner size="sm" className="mr-2" />
-              Thinking...
-            </>
-          ) : (
-            "Parse Pipeline"
+          <button
+            type="button"
+            onClick={handleParse}
+            disabled={!prompt.trim() || parseStatus === "loading"}
+            className="cmp-parse-btn"
+          >
+            {parseStatus === "loading" ? (
+              <>
+                <Spinner size="sm" />
+                Thinking...
+              </>
+            ) : (
+              <>
+                <span aria-hidden>✨</span> Parse Pipeline
+              </>
+            )}
+          </button>
+
+          {parseError && <div className="cmp-alert cmp-alert--error">{parseError}</div>}
+
+          {clarificationNeeded && clarificationQuestion && (
+            <div className="cmp-alert cmp-alert--warn">
+              <strong>Clarification needed</strong>
+              <br />
+              {clarificationQuestion}
+            </div>
           )}
-        </Button>
+        </div>
 
-        {parseError && (
-          <div className="p-3 rounded-md bg-error/10 border border-error/20">
-            <p className="text-xs text-error font-mono">{parseError}</p>
-          </div>
-        )}
-
-        {clarificationNeeded && clarificationQuestion && (
-          <div className="p-3 rounded-md bg-warning/10 border border-warning/30">
-            <p className="text-xs text-warning font-medium mb-2">
-              Clarification needed
-            </p>
-            <p className="text-xs text-text-secondary">{clarificationQuestion}</p>
-          </div>
-        )}
+        <ExamplePipelines onSelect={handleExample} />
       </div>
-
-      <ExamplePipelines onSelect={handleExample} />
-    </div>
+    </aside>
   );
 }

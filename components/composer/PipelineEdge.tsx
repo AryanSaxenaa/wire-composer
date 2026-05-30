@@ -1,7 +1,7 @@
 "use client";
 
 import { memo } from "react";
-import { EdgeProps, getBezierPath } from "reactflow";
+import { BaseEdge, EdgeProps, getSmoothStepPath } from "reactflow";
 
 function PipelineEdgeComponent({
   id,
@@ -14,25 +14,36 @@ function PipelineEdgeComponent({
   animated,
   style,
 }: EdgeProps) {
-  const [edgePath] = getBezierPath({
+  const [edgePath, labelX, labelY] = getSmoothStepPath({
     sourceX,
     sourceY,
     sourcePosition,
     targetX,
     targetY,
     targetPosition,
+    borderRadius: 20,
   });
 
   return (
-    <path
-      id={id}
-      d={edgePath}
-      stroke={animated ? "#4f6ef7" : "rgba(79,110,247,0.4)"}
-      strokeWidth={2}
-      fill="none"
-      className={animated ? "animate-pulse" : ""}
-      style={style}
-    />
+    <>
+      <BaseEdge
+        id={id}
+        path={edgePath}
+        style={{
+          ...style,
+          stroke: animated ? "#2563eb" : "#93c5fd",
+          strokeWidth: 2,
+        }}
+      />
+      <circle
+        cx={labelX}
+        cy={labelY}
+        r={5}
+        fill="#ffffff"
+        stroke="#93c5fd"
+        strokeWidth={2}
+      />
+    </>
   );
 }
 

@@ -50,10 +50,9 @@ function autoLayout(nodes: PipelineNode[], edges: PipelineEdge[]): PipelineNode[
     byDepth.get(d)!.push(n);
   });
 
-  const SPACING_X = 280;
-  const SPACING_Y = 160;
-  const BASE_X = 100;
-  const BASE_Y = 200;
+  const SPACING_Y = 130;
+  const BASE_X = 380;
+  const BASE_Y = 40;
 
   const result: PipelineNode[] = [];
   const sortedDepths = [...byDepth.keys()].sort((a, b) => a - b);
@@ -64,8 +63,8 @@ function autoLayout(nodes: PipelineNode[], edges: PipelineEdge[]): PipelineNode[
       result.push({
         ...node,
         position: {
-          x: BASE_X + depth * SPACING_X,
-          y: BASE_Y + i * SPACING_Y,
+          x: BASE_X + i * 48,
+          y: BASE_Y + depth * SPACING_Y,
         },
       });
     });

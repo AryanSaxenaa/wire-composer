@@ -19,7 +19,7 @@ export default function RootLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en" className={`${inter.variable} ${jetbrainsMono.variable} h-full antialiased`}>
-      <body className="min-h-full bg-bg-base text-text-primary font-sans">
+      <body className="min-h-full font-sans">
         <ToastContainer />
         {children}
       </body>

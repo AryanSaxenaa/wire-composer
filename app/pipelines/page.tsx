@@ -3,119 +3,122 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Pipeline } from "@/types";
-import { Badge } from "@/components/ui/Badge";
-import { Button } from "@/components/ui/Button";
-import { Spinner } from "@/components/ui/Spinner";
+import { AppHeader } from "@/components/layout/AppHeader";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { Spinner } from "@/components/ui/Spinner";
+import "../composer.css";
 
-function StatusBadge({ status }: { status?: string }) {
-  if (!status) return <Badge>—</Badge>;
-  const map: Record<string, "success" | "error" | "warning"> = {
-    success: "success",
-    error: "error",
-    partial: "warning",
+function StatusPill({ status }: { status?: string }) {
+  if (!status) return <span className="cmp-pill-muted">—</span>;
+  const styles: Record<string, string> = {
+    success: "cmp-pill cmp-pill--success",
+    error: "cmp-pill cmp-pill--error",
+    partial: "cmp-pill cmp-pill--warn",
   };
-  return <Badge variant={map[status] || "default"}>{status}</Badge>;
+  return <span className={styles[status] || "cmp-pill cmp-pill--muted"}>{status}</span>;
 }
 
 export default function PipelinesPage() {
   const [pipelines, setPipelines] = useState<Pipeline[]>([]);
   const [loading, setLoading] = useState(true);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     fetch("/api/pipelines")
       .then((r) => r.json())
-      .then((data) => setPipelines(data.pipelines || []))
-      .catch(() => setPipelines([]))
+      .then((data) => {
+        if (data.error) setError(data.error);
+        setPipelines(data.pipelines || []);
+      })
+      .catch(() => {
+        setError("Could not load pipelines. Check your KV configuration.");
+        setPipelines([]);
+      })
       .finally(() => setLoading(false));
   }, []);
 
   const handleDelete = async (id: string) => {
     await fetch(`/api/pipelines/${id}`, { method: "DELETE" });
     setPipelines((p) => p.filter((x) => x.id !== id));
+    setDeleteId(null);
   };
 
   return (
-    <div className="min-h-screen bg-bg-base">
-      <header className="border-b border-border-default px-6 py-4 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Link href="/" className="text-sm font-bold text-accent-primary font-mono">
-            wire
+    <div className="composer-app">
+      <AppHeader
+        title="Saved pipelines"
+        action={
+          <Link href="/composer" className="cmp-btn cmp-btn--primary">
+            New pipeline
           </Link>
-          <span className="text-text-muted text-sm">/</span>
-          <h1 className="text-sm font-semibold text-text-primary font-mono">Pipelines</h1>
-        </div>
-        <Link href="/composer">
-          <Button size="sm">New Pipeline</Button>
-        </Link>
-      </header>
+        }
+      />
 
-      <div className="max-w-4xl mx-auto p-6">
+      <main className="cmp-page-main">
         {loading ? (
-          <div className="flex items-center justify-center py-20 gap-3">
-            <Spinner size="sm" /> <span className="text-text-muted text-sm font-mono">Loading...</span>
+          <div className="cmp-page-center">
+            <Spinner size="sm" />
+            <span className="text-sm text-[#64748b]">Loading pipelines...</span>
+          </div>
+        ) : error ? (
+          <div className="cmp-page-center">
+            <p className="cmp-alert cmp-alert--error">{error}</p>
+            <Link href="/composer" className="cmp-btn cmp-btn--primary">
+              Open composer
+            </Link>
           </div>
         ) : pipelines.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-20 gap-4">
-            <p className="text-text-muted text-sm font-mono">No pipelines yet</p>
-            <Link href="/composer">
-              <Button>Build your first pipeline</Button>
+          <div className="cmp-page-center">
+            <p className="text-sm text-[#64748b]">No saved pipelines yet.</p>
+            <p className="text-xs text-[#94a3b8] max-w-sm text-center">
+              Build a workflow in the composer, then click Save to store it here.
+            </p>
+            <Link href="/composer" className="cmp-btn cmp-btn--primary">
+              Open composer
             </Link>
           </div>
         ) : (
-          <div className="border border-border-default rounded-md overflow-hidden">
-            <div className="grid grid-cols-[1fr_100px_140px_100px_120px] gap-4 px-4 py-3 bg-bg-surface border-b border-border-default text-[10px] text-text-muted font-mono uppercase tracking-wider">
+          <div className="cmp-table-wrap">
+            <div className="cmp-table-head">
               <span>Name</span>
               <span>Nodes</span>
-              <span>Last Run</span>
+              <span>Last run</span>
               <span>Status</span>
               <span>Actions</span>
             </div>
             {pipelines.map((p) => (
-              <div
-                key={p.id}
-                className="grid grid-cols-[1fr_100px_140px_100px_120px] gap-4 px-4 py-3 border-b border-border-default last:border-b-0 hover:bg-bg-subtle transition-colors items-center"
-              >
-                <Link
-                  href={`/pipelines/${p.id}`}
-                  className="text-sm text-text-primary font-medium hover:text-accent-primary transition-colors truncate"
-                >
+              <div key={p.id} className="cmp-table-row">
+                <Link href={`/pipelines/${p.id}`} className="cmp-table-name">
                   {p.name}
                 </Link>
-                <span className="text-xs text-text-muted font-mono">{p.nodes.length}</span>
-                <span className="text-xs text-text-muted font-mono">
-                  {p.lastRunAt
-                    ? new Date(p.lastRunAt).toLocaleDateString()
-                    : "—"}
+                <span className="cmp-table-muted">{p.nodes.length}</span>
+                <span className="cmp-table-muted">
+                  {p.lastRunAt ? new Date(p.lastRunAt).toLocaleString() : "—"}
                 </span>
-                <StatusBadge status={p.lastRunStatus} />
-                <div className="flex items-center gap-1">
-                  <Link href={`/pipelines/${p.id}`}>
-                    <Button size="sm" variant="ghost" className="text-[10px]">Edit</Button>
+                <StatusPill status={p.lastRunStatus} />
+                <div className="cmp-table-actions">
+                  <Link href={`/pipelines/${p.id}`} className="cmp-btn cmp-btn--sm">
+                    Open
                   </Link>
-                  <Link href={`/pipelines/${p.id}`}>
-                    <Button size="sm" variant="ghost" className="text-[10px] text-accent-primary">Run</Button>
-                  </Link>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    className="text-[10px] hover:text-error"
+                  <button
+                    type="button"
+                    className="cmp-btn cmp-btn--sm cmp-btn--danger-text"
                     onClick={() => setDeleteId(p.id)}
                   >
                     Delete
-                  </Button>
+                  </button>
                 </div>
               </div>
             ))}
           </div>
         )}
-      </div>
+      </main>
 
       <ConfirmDialog
         open={deleteId !== null}
-        title="Delete Pipeline"
-        message="This action cannot be undone. The pipeline and all its configuration will be permanently deleted."
+        title="Delete pipeline"
+        message="This permanently deletes the pipeline from storage."
         confirmLabel="Delete"
         variant="danger"
         onConfirm={() => deleteId && handleDelete(deleteId)}
