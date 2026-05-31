@@ -286,7 +286,9 @@ export function LandingPage() {
                 Ready to build your first automation?
               </h2>
               <p className="lp-cta-desc">
-                Join builders shipping workflows in minutes, not days.
+                <span className="lp-cta-desc-line">
+                  Join builders shipping workflows in minutes, not days.
+                </span>
               </p>
             </div>
             <div className="lp-cta-action">
