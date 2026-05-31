@@ -1166,22 +1166,15 @@
 .lp-hero-demo-graph {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 4px;
-}
-
-.lp-hero-demo-node-wrap {
-  display: flex;
-  align-items: center;
-  flex: 1;
-  min-width: 0;
+  width: 100%;
 }
 
 .lp-hero-demo-edge {
-  flex: 1;
+  flex: 1 1 0;
+  min-width: 28px;
   height: 2px;
   background: #e2e8f0;
-  margin: 0 4px;
+  margin: 0 6px;
   transition: background 0.3s;
 }
 

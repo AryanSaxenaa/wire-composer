@@ -37,7 +37,37 @@ const nodeTypes = {
 };
 const edgeTypes = { dataFlow: PipelineEdge };
 
-function toFlowNode(node: PipelineNodeType, stepIndex: number): Node {
+function inputPreviewForNode(
+  node: PipelineNodeType,
+  edges: PipelineEdgeType[],
+  nodes: PipelineNodeType[]
+): Record<string, string> {
+  const action = getActionById(node.actionId);
+  const previews: Record<string, string> = {};
+  for (const field of (action?.inputFields ?? []).slice(0, 2)) {
+    const val = node.config?.[field.key];
+    if (val) {
+      previews[field.key] = String(val);
+      continue;
+    }
+    const edge = edges.find(
+      (e) =>
+        e.target === node.id && e.dataMapping.some((m) => m.toField === field.key)
+    );
+    if (edge) {
+      const source = nodes.find((n) => n.id === edge.source);
+      previews[field.key] = `← ${source?.label || "upstream"}`;
+    }
+  }
+  return previews;
+}
+
+function toFlowNode(
+  node: PipelineNodeType,
+  stepIndex: number,
+  edges: PipelineEdgeType[],
+  allNodes: PipelineNodeType[]
+): Node {
   const action = getActionById(node.actionId);
   return {
     id: node.id,
@@ -49,6 +79,7 @@ function toFlowNode(node: PipelineNodeType, stepIndex: number): Node {
       actionId: node.actionId,
       status: node.status,
       config: node.config,
+      inputPreviews: inputPreviewForNode(node, edges, allNodes),
       output: node.output,
       error: node.error,
       stepIndex,
@@ -118,9 +149,14 @@ export function PipelineCanvas() {
   const initialNodes = useMemo(
     () =>
       (pipeline?.nodes || []).map((n) =>
-        toFlowNode(n, stepIndexMap.get(n.id) || 1)
+        toFlowNode(
+          n,
+          stepIndexMap.get(n.id) || 1,
+          pipeline?.edges || [],
+          pipeline?.nodes || []
+        )
       ),
-    [pipeline?.nodes, stepIndexMap]
+    [pipeline?.nodes, pipeline?.edges, stepIndexMap]
   );
   const initialEdges = useMemo(
     () => (pipeline?.edges || []).map(toFlowEdge),
@@ -136,7 +172,12 @@ export function PipelineCanvas() {
 
   useEffect(() => {
     const storeNodes = (pipeline?.nodes || []).map((n) =>
-      toFlowNode(n, stepIndexMap.get(n.id) || 1)
+      toFlowNode(
+        n,
+        stepIndexMap.get(n.id) || 1,
+        pipeline?.edges || [],
+        pipeline?.nodes || []
+      )
     );
     const storeEdges = (pipeline?.edges || []).map(toFlowEdge);
 

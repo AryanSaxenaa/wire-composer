@@ -4,6 +4,7 @@ import { resolveInputsWithAmbiguity } from "@/lib/resolve-inputs";
 import { runWireAction } from "@/lib/wire-client";
 import { getActionById, registerAnakinActions } from "@/lib/action-registry";
 import { loadAnakinActions } from "@/lib/anakin-catalog";
+import { isKnownExampleWireActionId } from "@/lib/anakin-fallback-actions";
 import { isBuiltinAction, runBuiltinAction, findClosestActionId } from "@/lib/builtin-actions";
 import {
   getServerCredentialsForNode,
@@ -11,6 +12,8 @@ import {
 } from "@/lib/server-credentials";
 import { isUnsetInput } from "@/lib/input-utils";
 import { validatePipelineBeforeRun } from "@/lib/pipeline-validation";
+import { buildWebhookTriggerOutput } from "@/lib/webhook-trigger-output";
+import { enrichNodeInputs } from "@/lib/merge-node-inputs";
 
 export type ExecutorEmit = (
   event: PipelineExecutorEvent,
@@ -87,7 +90,7 @@ export async function executePipeline(
     }
 
     if (node.type === "trigger" || node.actionId === "wire.trigger.webhook") {
-      const triggerOut = triggerData ?? {};
+      const triggerOut = buildWebhookTriggerOutput(node, pipeline, triggerData);
       nodeOutputs[node.id] = triggerOut;
       emit("node_complete", { nodeId: node.id, output: triggerOut, skipped: false });
       continue;
@@ -95,7 +98,7 @@ export async function executePipeline(
 
     const action = getActionById(node.actionId);
 
-    if (!action && !isBuiltinAction(node.actionId)) {
+    if (!action && !isBuiltinAction(node.actionId) && !isKnownExampleWireActionId(node.actionId)) {
       const closest = findClosestActionId(node.actionId);
       emit("node_error", {
         nodeId: node.id,
@@ -135,8 +138,7 @@ export async function executePipeline(
     }
 
     const mergedInputs: Record<string, unknown> = {
-      ...node.config,
-      ...resolved.inputs,
+      ...enrichNodeInputs(node, pipeline.edges, nodeOutputs, resolved.inputs),
       ...(triggerData ? { triggerData } : {}),
     };
 

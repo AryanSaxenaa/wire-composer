@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { useState, useCallback, useEffect } from "react";
 import { useComposerStore } from "@/lib/store";
 import { usePipelineRunner } from "@/hooks/usePipelineRunner";
-import { Logo } from "@/components/ui/Logo";
 import { Spinner } from "@/components/ui/Spinner";
 import { preparePipelineForStorage } from "@/lib/sanitize-pipeline";
 import { useCredentials } from "@/lib/credentials-context";
@@ -168,11 +167,6 @@ export function TopBar() {
   return (
     <header className="cmp-topbar">
       <div className="cmp-topbar-left">
-        <Link href="/" className="cmp-topbar-brand">
-          <Logo size={28} />
-          <span>wire</span>
-        </Link>
-        <div className="cmp-topbar-divider" />
         <div className="cmp-topbar-crumb">
           <Link href="/pipelines" className="cmp-topbar-crumb-brand hover:underline">
             Pipelines

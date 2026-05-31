@@ -1,5 +1,9 @@
 import { PipelineNode, PipelineEdge, AmbiguousMappingState } from "@/types";
 import { getActionById } from "@/lib/action-registry";
+import { isUnsetInput } from "@/lib/input-utils";
+import { firstListingId } from "@/lib/listing-id";
+import { firstPolymarketMarketId, firstPolymarketTokenId } from "@/lib/polymarket-id";
+import { coerceWireParamValue } from "@/lib/wire-param-coerce";
 
 /** Wire actions often return list payloads (e.g. `users`, `listings`) instead of flat fields. */
 const NESTED_LIST_KEYS = [
@@ -11,13 +15,26 @@ const NESTED_LIST_KEYS = [
   "products",
   "repos",
   "reviews",
+  "events",
+  "markets",
+  "tokens",
 ] as const;
 
-function resolveFieldFromOutput(
+export function resolveFieldFromOutput(
   sourceOutput: Record<string, unknown>,
   fromField: string
 ): unknown {
-  if (fromField in sourceOutput) return sourceOutput[fromField];
+  if (fromField in sourceOutput) {
+    const direct = sourceOutput[fromField];
+    if (!isUnsetInput(direct)) return coerceWireParamValue(fromField, direct);
+  }
+
+  if (fromField === "listing_id") {
+    for (const alias of ["listing_id", "value", "extracted"]) {
+      const v = sourceOutput[alias];
+      if (!isUnsetInput(v)) return coerceWireParamValue(fromField, v);
+    }
+  }
 
   const nested = sourceOutput.data;
   if (nested && typeof nested === "object" && !Array.isArray(nested)) {
@@ -31,8 +48,64 @@ function resolveFieldFromOutput(
     const first = list[0];
     if (first && typeof first === "object" && !Array.isArray(first)) {
       const row = first as Record<string, unknown>;
-      if (fromField in row) return row[fromField];
+      if (fromField in row) return coerceWireParamValue(fromField, row[fromField]);
+      if (fromField === "listing_id") {
+        const id = row.listing_id ?? row.listingId ?? row.id ?? row.room_id;
+        if (!isUnsetInput(id)) return id;
+      }
     }
+  }
+
+  if (fromField === "listing_id") {
+    const top = firstListingId(sourceOutput);
+    if (top) return top;
+  }
+
+  if (fromField === "market_id") {
+    const id = firstPolymarketMarketId(sourceOutput);
+    if (id) return coerceWireParamValue(fromField, id);
+  }
+
+  if (fromField === "token_id") {
+    for (const alias of ["token_id", "value", "extracted"]) {
+      const v = sourceOutput[alias];
+      if (!isUnsetInput(v)) return coerceWireParamValue(fromField, v);
+    }
+    const id = firstPolymarketTokenId(sourceOutput);
+    if (id) return id;
+  }
+
+  return undefined;
+}
+
+/** Walk upstream edges (BFS) until a field is found — covers extract + market-full chains. */
+export function resolveUpstreamField(
+  nodeId: string,
+  field: string,
+  edges: PipelineEdge[],
+  nodeOutputs: Record<string, Record<string, unknown>>,
+  maxHops = 6
+): unknown {
+  const visited = new Set<string>();
+  let frontier = [nodeId];
+
+  for (let hop = 0; hop < maxHops && frontier.length > 0; hop++) {
+    const next: string[] = [];
+    for (const targetId of frontier) {
+      for (const edge of edges.filter((e) => e.target === targetId)) {
+        if (visited.has(edge.source)) continue;
+        visited.add(edge.source);
+        const out = nodeOutputs[edge.source];
+        if (!out || out.skipped === true) {
+          next.push(edge.source);
+          continue;
+        }
+        const val = resolveFieldFromOutput(out, field);
+        if (!isUnsetInput(val)) return val;
+        next.push(edge.source);
+      }
+    }
+    frontier = next;
   }
 
   return undefined;
@@ -59,6 +132,15 @@ export function resolveInputsWithAmbiguity(
 
     const sourceNode = allNodes.find((n) => n.id === edge.source);
 
+    if (
+      edge.dataMapping.length === 0 &&
+      node.actionId === "wire.data.extract" &&
+      sourceOutput
+    ) {
+      resolved.source = sourceOutput;
+      continue;
+    }
+
     if (edge.dataMapping.length > 0) {
       for (const mapping of edge.dataMapping) {
         const overrideKey = mappingOverrides?.[node.id]?.[mapping.toField];
@@ -70,8 +152,13 @@ export function resolveInputsWithAmbiguity(
           continue;
         }
         const mapped = resolveFieldFromOutput(sourceOutput, mapping.fromField);
-        if (mapped !== undefined) {
+        if (!isUnsetInput(mapped)) {
           resolved[mapping.toField] = mapped;
+        } else {
+          const fallback = node.config?.[mapping.toField];
+          if (!isUnsetInput(fallback)) {
+            resolved[mapping.toField] = fallback;
+          }
         }
       }
       continue;

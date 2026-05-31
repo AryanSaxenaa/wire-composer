@@ -1,12 +1,11 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { ComposerLayout } from "@/components/composer/ComposerLayout";
 import { useComposerStore } from "@/lib/store";
 import { useWireActions } from "@/hooks/useWireActions";
-import { usePipelineRunner } from "@/hooks/usePipelineRunner";
 import { Spinner } from "@/components/ui/Spinner";
 
 export function PipelineViewClient() {
@@ -14,15 +13,12 @@ export function PipelineViewClient() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const setPipeline = useComposerStore((s) => s.setPipeline);
-  const { run } = usePipelineRunner();
-  const autoRunDone = useRef(false);
 
   useWireActions();
 
   useEffect(() => {
     setLoading(true);
     setError(null);
-    autoRunDone.current = false;
     fetch(`/api/pipelines/${params.id}`)
       .then((r) => r.json())
       .then((data) => {
@@ -35,15 +31,6 @@ export function PipelineViewClient() {
       .catch(() => setError("Failed to load pipeline"))
       .finally(() => setLoading(false));
   }, [params.id, setPipeline]);
-
-  useEffect(() => {
-    if (loading || error || autoRunDone.current) return;
-    const params = new URLSearchParams(window.location.search);
-    if (params.get("run") !== "1") return;
-    autoRunDone.current = true;
-    const t = setTimeout(() => run(), 400);
-    return () => clearTimeout(t);
-  }, [loading, error, run]);
 
   if (loading) {
     return (

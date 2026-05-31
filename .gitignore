@@ -56,8 +56,27 @@ deployment-info.md
 
 # Local hackathon notes (not for repo)
 HACKATHON-DEMO.md
+wire-composer-build-spec.md
 
-# Local / deploy artifacts
+# Remotion / Pitch Deck video files
+out.mp4
+out.mov
+out.webm
+*.mp4
+*.mov
+*.webm
+remotion/output/
+remotion/public/
+
+# Local / deploy artifacts (keep app code in repo; deploy tooling stays local)
+deploy_*.ps1
+Dockerfile
+.dockerignore
+.gcloudignore
 service_url.txt
 emoji_search_*.txt
 emoji_source_report.txt
+
+# Remotion pitch deck (local only)
+remotion.config.ts
+remotion/

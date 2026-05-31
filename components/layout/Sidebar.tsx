@@ -14,9 +14,8 @@ export function Sidebar() {
 
   return (
     <aside className="cmp-app-sidebar">
-      <Link href="/" className="cmp-app-sidebar-brand">
+      <Link href="/" className="cmp-app-sidebar-brand" aria-label="Home">
         <Logo size={28} />
-        <span>wire</span>
       </Link>
       <nav className="cmp-app-sidebar-nav">
         {NAV.map((item) => {

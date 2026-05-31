@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { normalizeNodeConfig } from "@/lib/normalize-pipeline-config";
 
 export const ActionFieldSchema = z.object({
   key: z.string(),
@@ -34,7 +35,10 @@ export const PipelineNodeSchema = z.object({
   label: z.string(),
   platform: z.string(),
   position: z.object({ x: z.number(), y: z.number() }),
-  config: z.record(z.string(), z.string()),
+  config: z.preprocess(
+    (raw) => normalizeNodeConfig((raw ?? {}) as Record<string, unknown>),
+    z.record(z.string(), z.string())
+  ),
   credentials: z.record(z.string(), z.string()),
   status: z.enum(["idle", "pending", "running", "success", "error", "waiting_input"]),
   output: z.record(z.string(), z.unknown()).optional(),

@@ -179,7 +179,16 @@ export function NodeInspector() {
         <div className="cmp-inspector-section">
           <h4>Inputs</h4>
           <div className="flex flex-col gap-3">
-            {action?.inputFields.map((field) => {
+            {(action?.inputFields?.length
+              ? action.inputFields
+              : Object.keys(node.config).map((key) => ({
+                  key,
+                  label: key,
+                  type: "string" as const,
+                  required: false,
+                  description: "",
+                }))
+            ).map((field) => {
               const edge = pipeline?.edges.find(
                 (e) =>
                   e.target === node.id && e.dataMapping.some((m) => m.toField === field.key)
@@ -201,8 +210,20 @@ export function NodeInspector() {
                     )}
                   </label>
                   {isMapped ? (
-                    <div className="cmp-field-readonly">
-                      Mapped from &ldquo;{sourceNode?.label || "upstream"}&rdquo;
+                    <div className="flex flex-col gap-1">
+                      <div className="cmp-field-readonly">
+                        Mapped from &ldquo;{sourceNode?.label || "upstream"}&rdquo;
+                      </div>
+                      <input
+                        id={`input-${field.key}-fallback`}
+                        className="cmp-field-input"
+                        placeholder={`Override ${field.key} for this run (optional)`}
+                        value={String(node.config[field.key] ?? "")}
+                        onChange={(e) => handleConfigChange(field.key, e.target.value)}
+                      />
+                      <p className="text-[10px] text-[#94a3b8]">
+                        Your value here overrides the upstream mapping for this run.
+                      </p>
                     </div>
                   ) : (
                     <input

@@ -22,6 +22,7 @@ function platformIconSrc(platform: string): string {
     "linkedin",
     "slack",
     "notion",
+    "polymarket",
   ];
   if (known.includes(key)) return `/platform-icons/${key}.svg`;
   return "/platform-icons/default.svg";
@@ -44,6 +45,7 @@ function PipelineNodeComponent({ id, data, selected }: NodeProps) {
   );
 
   const config = (data.config as Record<string, string>) || {};
+  const inputPreviews = (data.inputPreviews as Record<string, string>) || {};
   const output = data.output as Record<string, unknown> | undefined;
   const isSkipped = status === "success" && output?.skipped === true;
   const showSuccess = status === "success" && !isSkipped;
@@ -77,8 +79,12 @@ function PipelineNodeComponent({ id, data, selected }: NodeProps) {
           <div key={f.key} className="field-preview text-xs">
             <span className="field-key font-mono">{f.key}:</span>{" "}
             <span className="field-value truncate inline-block max-w-[140px] align-bottom">
-              {config[f.key] ? (
-                config[f.key]
+              {inputPreviews[f.key] ? (
+                inputPreviews[f.key].startsWith("←") ? (
+                  <span className="text-[#10b981]">{inputPreviews[f.key]}</span>
+                ) : (
+                  inputPreviews[f.key]
+                )
               ) : (
                 <span className="italic text-[#94a3b8]">not set</span>
               )}

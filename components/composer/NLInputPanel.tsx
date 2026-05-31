@@ -4,7 +4,6 @@ import { useCallback, useState } from "react";
 import { usePipelineParser } from "@/hooks/usePipelineParser";
 import { Spinner } from "@/components/ui/Spinner";
 import { ExamplePipelines } from "@/components/composer/ExamplePipelines";
-import { DemoPipelines } from "@/components/composer/DemoPipelines";
 import { useComposerStore } from "@/lib/store";
 
 const PLACEHOLDER_PROMPTS = [
@@ -113,7 +112,6 @@ export function NLInputPanel() {
         </div>
 
         <ExamplePipelines onSelect={handleExample} disabled={status === "loading"} />
-        <DemoPipelines />
       </div>
     </aside>
   );

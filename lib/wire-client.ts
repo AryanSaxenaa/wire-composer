@@ -1,4 +1,5 @@
 import { getActionById } from "@/lib/action-registry";
+import { sanitizeWireActionParams } from "@/lib/sanitize-wire-params";
 
 const ANAKIN_BASE = "https://api.anakin.io/v1";
 const WIRE_BASE = `${ANAKIN_BASE}/wire`;
@@ -79,12 +80,15 @@ const CREDENTIAL_PARAM_KEYS = new Set([
   "triggerData",
 ]);
 
-function buildTaskParams(inputs: Record<string, unknown>): Record<string, unknown> {
+function buildTaskParams(
+  actionId: string,
+  inputs: Record<string, unknown>
+): Record<string, unknown> {
   const params: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(inputs)) {
     if (!CREDENTIAL_PARAM_KEYS.has(key)) params[key] = value;
   }
-  return params;
+  return sanitizeWireActionParams(actionId, params);
 }
 
 function normalizeStatus(data: Record<string, unknown>): string {
@@ -147,6 +151,9 @@ const PAYLOAD_MARKERS = [
   "price",
   "slug",
   "repos",
+  "events",
+  "markets",
+  "tokens",
 ];
 
 function isPayloadShape(obj: Record<string, unknown>): boolean {
@@ -238,7 +245,7 @@ export async function runWireAction(
 
   const taskBody: WireTaskBody = {
     action_id: actionId,
-    params: buildTaskParams(inputs),
+    params: buildTaskParams(actionId, inputs),
   };
 
   if (shouldAttachCredential(actionId, credentials)) {

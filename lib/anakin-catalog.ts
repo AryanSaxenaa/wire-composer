@@ -1,4 +1,7 @@
+import { mergeWithFallbackActions } from "@/lib/anakin-fallback-actions";
 import { WireAction, ActionField } from "@/types";
+
+const EXAMPLE_PLATFORM_SLUGS = ["polymarket", "airbnb", "github_public", "producthunt"] as const;
 
 const ANAKIN_BASE = "https://api.anakin.io/v1/wire";
 const CACHE_TTL_MS = 10 * 60 * 1000;
@@ -181,7 +184,7 @@ async function fetchAllAnakinActions(apiKey: string): Promise<WireAction[]> {
 
 export async function loadAnakinActions(force = false): Promise<WireAction[]> {
   const apiKey = getApiKey();
-  if (!apiKey) return [];
+  if (!apiKey) return mergeWithFallbackActions([]);
 
   const now = Date.now();
   if (!force && memoryCache && now - memoryCacheTs < CACHE_TTL_MS) {
@@ -190,7 +193,16 @@ export async function loadAnakinActions(force = false): Promise<WireAction[]> {
 
   if (!force && loadPromise) return loadPromise;
 
-  loadPromise = fetchAllAnakinActions(apiKey)
+  loadPromise = (async () => {
+    const priority = await Promise.all(
+      EXAMPLE_PLATFORM_SLUGS.map((slug) => fetchCatalogActions(apiKey, slug))
+    );
+    const priorityActions = priority.flat();
+    const all = await fetchAllAnakinActions(apiKey);
+    const byId = new Map<string, WireAction>();
+    for (const a of [...priorityActions, ...all]) byId.set(a.id, a);
+    return mergeWithFallbackActions(Array.from(byId.values()));
+  })()
     .then((actions) => {
       memoryCache = actions;
       memoryCacheTs = Date.now();
@@ -204,5 +216,5 @@ export async function loadAnakinActions(force = false): Promise<WireAction[]> {
 }
 
 export function getCachedAnakinActions(): WireAction[] {
-  return memoryCache ?? [];
+  return memoryCache?.length ? memoryCache : mergeWithFallbackActions([]);
 }

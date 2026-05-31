@@ -369,11 +369,18 @@
 .cmp-app-sidebar-brand {
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-weight: 600;
-  color: var(--cmp-ink);
+  justify-content: center;
   text-decoration: none;
   margin-bottom: 20px;
+  padding: 4px 0;
+}
+
+.cmp-topbar-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--cmp-ink);
+  letter-spacing: -0.02em;
 }
 
 .cmp-app-sidebar-nav {

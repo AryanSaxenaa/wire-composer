@@ -1,3 +1,8 @@
+import {
+  ANAKIN_FALLBACK_ACTIONS,
+  getFallbackActionById,
+  mergeWithFallbackActions,
+} from "@/lib/anakin-fallback-actions";
 import { WireAction } from "@/types";
 
 /** Local transform/trigger steps — not Anakin Wire catalog actions. */
@@ -90,13 +95,16 @@ export const BUILTIN_ACTIONS: WireAction[] = [
 let anakinIndex = new Map<string, WireAction>();
 
 export function registerAnakinActions(actions: WireAction[]): void {
-  if (actions.length === 0) return;
+  for (const stub of ANAKIN_FALLBACK_ACTIONS) {
+    if (!anakinIndex.has(stub.id)) anakinIndex.set(stub.id, stub);
+  }
   for (const action of actions) anakinIndex.set(action.id, action);
 }
 
 export function getAllRegisteredActions(): WireAction[] {
   const merged = new Map<string, WireAction>();
   for (const a of BUILTIN_ACTIONS) merged.set(a.id, a);
+  for (const a of ANAKIN_FALLBACK_ACTIONS) merged.set(a.id, a);
   for (const [id, a] of anakinIndex) merged.set(id, a);
   return Array.from(merged.values());
 }
@@ -105,7 +113,11 @@ export function getAllRegisteredActions(): WireAction[] {
 export const ACTION_REGISTRY: WireAction[] = BUILTIN_ACTIONS;
 
 export function getActionById(id: string): WireAction | undefined {
-  return BUILTIN_ACTIONS.find((a) => a.id === id) ?? anakinIndex.get(id);
+  return (
+    BUILTIN_ACTIONS.find((a) => a.id === id) ??
+    anakinIndex.get(id) ??
+    getFallbackActionById(id)
+  );
 }
 
 export function getActionsByPlatform(platform: string): WireAction[] {

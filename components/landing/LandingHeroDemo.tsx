@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 
 const PHASES = [
   { label: "Parse", prompt: "Get GitHub repos for teknium1…" },
@@ -40,21 +40,21 @@ export function LandingHeroDemo() {
       </div>
       <div className="lp-hero-demo-graph">
         {NODES.map((name, i) => (
-          <div key={name} className="lp-hero-demo-node-wrap">
+          <Fragment key={name}>
             {i > 0 && (
               <span
                 className={`lp-hero-demo-edge ${i <= visibleNodes ? "lp-hero-demo-edge--on" : ""}`}
                 aria-hidden
               />
             )}
-            <div
+            <span
               className={`lp-hero-demo-node ${i < visibleNodes ? "lp-hero-demo-node--on" : ""} ${
                 i === visibleNodes - 1 && visibleNodes < NODES.length ? "lp-hero-demo-node--pulse" : ""
               }`}
             >
               {name}
-            </div>
-          </div>
+            </span>
+          </Fragment>
         ))}
       </div>
     </div>

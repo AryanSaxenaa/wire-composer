@@ -1,5 +1,9 @@
 import { transformWithDeepSeek } from "@/lib/deepseek-transform";
 import { getActionById, getAllRegisteredActions } from "@/lib/action-registry";
+import { isUnsetInput } from "@/lib/input-utils";
+import { firstListingId } from "@/lib/listing-id";
+import { firstPolymarketMarketId, firstPolymarketTokenId } from "@/lib/polymarket-id";
+import { coerceWireParamValue } from "@/lib/wire-param-coerce";
 
 export function isBuiltinAction(actionId: string): boolean {
   return actionId.startsWith("wire.");
@@ -13,11 +17,33 @@ export async function runBuiltinAction(
     case "wire.data.extract": {
       const source = (inputs.source ?? inputs) as Record<string, unknown>;
       const field = String(inputs.field ?? "price");
-      const value =
+      let value: unknown =
         source[field] ??
         nestedGet(source, field) ??
         (typeof source.value !== "undefined" ? source.value : undefined);
-      return { [field]: value, value, extracted: value };
+
+      if (isUnsetInput(value) && /listing/i.test(field)) {
+        value = firstListingId(source);
+      }
+      if (isUnsetInput(value) && field === "market_id") {
+        value = firstPolymarketMarketId(source);
+      }
+      if (isUnsetInput(value) && field === "token_id") {
+        value = firstPolymarketTokenId(source);
+      }
+      if (isUnsetInput(value) && field === "title") {
+        value = nestedGet(source, "listings.0.title") ?? nestedGet(source, "title");
+      }
+
+      const out: Record<string, unknown> = {};
+      if (!isUnsetInput(value)) {
+        const coerced = coerceWireParamValue(field, value);
+        out.value = coerced;
+        out.extracted = coerced;
+        const canonical = canonicalExtractOutputKey(field);
+        if (canonical) out[canonical] = coerced;
+      }
+      return out;
     }
 
     case "wire.condition.compare": {
@@ -78,6 +104,14 @@ export async function runBuiltinAction(
   }
 }
 
+function canonicalExtractOutputKey(field: string): string | null {
+  if (field === "market_id" || field === "token_id") return field;
+  if (/listing_id/i.test(field) || field.endsWith(".id")) return "listing_id";
+  const parts = field.split(".").filter((p) => !/^\d+$/.test(p));
+  const last = parts[parts.length - 1];
+  return last && last !== "listings" ? last : "value";
+}
+
 function nestedGet(obj: Record<string, unknown>, path: string): unknown {
   const parts = path.split(".");
   let cur: unknown = obj;
@@ -91,15 +125,11 @@ function nestedGet(obj: Record<string, unknown>, path: string): unknown {
 export function findClosestActionId(unknownId: string): string | undefined {
   const all = unknownId.split(".");
   const platform = all[0];
-  const matches = ["linkedin", "amazon", "slack", "notion", "trustpilot", "github"].filter((p) =>
+  const matches = ["linkedin", "amazon", "slack", "notion", "trustpilot", "github", "polymarket", "pm_"].filter((p) =>
     unknownId.includes(p) || platform === p
   );
   if (matches[0]) {
     return getAllRegisteredActions().find((a) => a.platform === matches[0])?.id;
   }
   return undefined;
-}
-
-export function getActionOrBuiltin(id: string) {
-  return getActionById(id);
 }

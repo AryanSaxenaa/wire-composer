@@ -8,6 +8,7 @@ import { Sidebar } from "@/components/layout/Sidebar";
 import { RunStatusBar } from "@/components/composer/RunStatusBar";
 import { CredentialsProvider } from "@/lib/credentials-context";
 import { ComposerConfirmHost } from "@/components/composer/ComposerConfirmHost";
+import { PipelineAutoRunFromQuery } from "@/components/composer/PipelineAutoRunFromQuery";
 import { useComposerStore } from "@/lib/store";
 
 export function ComposerLayout() {
@@ -16,6 +17,7 @@ export function ComposerLayout() {
 
   return (
     <CredentialsProvider>
+      <PipelineAutoRunFromQuery />
       <div className="composer-app composer-app--with-nav">
         <ComposerConfirmHost />
         <Sidebar />

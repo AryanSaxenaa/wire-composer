@@ -1,18 +1,11 @@
 import { Pipeline } from "@/types";
 import { autoLayoutNodes } from "@/lib/auto-layout";
+import { ANAKIN_WIRE_ACTION_IDS } from "@/lib/anakin-wire-action-ids";
 
 const now = () => new Date().toISOString();
 
-/** Verified Anakin Wire `action_id` values — E2E-tested on production. */
-export const ANAKIN_DEMO_ACTIONS = {
-  airbnbSearchListings: "ab_search_listings",
-  airbnbListingDetails: "ab_listing_details",
-  githubSearchUsers: "gh_search_users",
-  githubUserDetails: "gh_user_details",
-  githubUserRepos: "gh_user_repos",
-  productHuntTrending: "ph_trending",
-  productHuntProductDetails: "ph_product_details",
-} as const;
+/** @deprecated Use ANAKIN_WIRE_ACTION_IDS */
+export const ANAKIN_DEMO_ACTIONS = ANAKIN_WIRE_ACTION_IDS;
 
 function layout(pipeline: Omit<Pipeline, "createdAt" | "updatedAt">): Pipeline {
   const nodes = autoLayoutNodes(pipeline.nodes, pipeline.edges);

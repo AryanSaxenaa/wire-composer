@@ -1,18 +1,23 @@
 import { NextResponse } from "next/server";
 import { kv } from "@vercel/kv";
+import { mergeWithFallbackActions } from "@/lib/anakin-fallback-actions";
 import { BUILTIN_ACTIONS, registerAnakinActions } from "@/lib/action-registry";
 import { loadAnakinActions } from "@/lib/anakin-catalog";
 import { WireAction } from "@/types";
 
-const CACHE_KEY = "wire:actions:catalog:v2";
+const CACHE_KEY = "wire:actions:catalog:v3";
 const CACHE_TTL_SEC = 10 * 60;
 
 let memoryCache: WireAction[] | null = null;
 let memoryCacheTs = 0;
 
 function mergeCatalog(anakinActions: WireAction[]): WireAction[] {
-  registerAnakinActions(anakinActions);
-  return [...BUILTIN_ACTIONS, ...anakinActions];
+  const merged = mergeWithFallbackActions(anakinActions);
+  registerAnakinActions(merged);
+  const byId = new Map<string, WireAction>();
+  for (const a of BUILTIN_ACTIONS) byId.set(a.id, a);
+  for (const a of merged) byId.set(a.id, a);
+  return Array.from(byId.values());
 }
 
 async function getCachedActions(): Promise<WireAction[] | null> {
@@ -54,7 +59,8 @@ export async function GET() {
     memoryCacheTs = now;
     return NextResponse.json({ actions: mergeCatalog(anakinActions) });
   } catch {
-    registerAnakinActions([]);
-    return NextResponse.json({ actions: BUILTIN_ACTIONS });
+    const fallbacks = mergeWithFallbackActions([]);
+    registerAnakinActions(fallbacks);
+    return NextResponse.json({ actions: mergeCatalog([]) });
   }
 }
