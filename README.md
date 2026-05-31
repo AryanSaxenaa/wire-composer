@@ -2,8 +2,7 @@
 
 No-code visual pipeline builder: describe a workflow in plain English, get an executable multi-step graph backed by the [Anakin Wire API](https://anakin.io). No user accounts — runs use your API keys (server-side for Wire; session-only for optional credentials).
 
-[![Watch the video](https://youtu.be/e-p9WxQwJfc?si=gxnBqwIu7sVaPoop)](https://youtu.be/e-p9WxQwJfc?si=gxnBqwIu7sVaPoop)
-
+[![Watch the video](https://img.youtube.com/vi/e-p9WxQwJfc/maxresdefault.jpg)](https://youtu.be/e-p9WxQwJfc)
 
 ## Live app
 
