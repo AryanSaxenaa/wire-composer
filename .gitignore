@@ -50,3 +50,14 @@ data/**/fulltext/
 node_modules/
 frontend/dist/
 *.tsbuildinfo
+
+# Deployment info
+deployment-info.md
+
+# Local hackathon notes (not for repo)
+HACKATHON-DEMO.md
+
+# Local / deploy artifacts
+service_url.txt
+emoji_search_*.txt
+emoji_source_report.txt

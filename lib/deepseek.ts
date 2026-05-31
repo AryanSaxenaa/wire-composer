@@ -3,8 +3,8 @@ import { WireAction, PipelineParseResult } from "@/types";
 import { PipelineParseResultSchema } from "@/lib/pipeline-schema";
 
 const client = new OpenAI({
-  apiKey: process.env.DEEPSEEK_API_KEY!,
   baseURL: "https://api.deepseek.com",
+  apiKey: process.env.DEEPSEEK_API_KEY || "dummy-key-for-build",
 });
 
 const PIPELINE_COMPILER_SYSTEM_PROMPT = `You are a pipeline compiler. You receive a plain-English workflow description and a list of available Wire actions. Your job is to:
@@ -22,7 +22,45 @@ Rules:
 - Leave credentials as empty objects — the user will fill those in.
 - The name field should be a short, memorable title derived from the prompt (max 6 words).
 
-Return ONLY valid JSON.`;
+You MUST return a JSON object with this exact structure:
+{
+  "pipeline": {
+    "name": "...",
+    "description": "...",
+    "nodes": [
+      {
+        "id": "unique_node_id",
+        "type": "wireAction",
+        "actionId": "action_id_from_list",
+        "label": "Short label",
+        "platform": "platform_name",
+        "position": { "x": 100, "y": 200 },
+        "config": {},
+        "credentials": {},
+        "status": "idle"
+      }
+    ],
+    "edges": [
+      {
+        "id": "unique_edge_id",
+        "source": "source_node_id",
+        "target": "target_node_id",
+        "sourceHandle": "source_output_field",
+        "targetHandle": "target_input_field",
+        "animated": false,
+        "dataMapping": [
+          { "fromField": "source_output_field", "toField": "target_input_field" }
+        ]
+      }
+    ]
+  },
+  "reasoning": "Explain your logic here...",
+  "confidence": 0.95,
+  "clarificationNeeded": false,
+  "clarificationQuestion": ""
+}
+
+Return ONLY valid JSON matching this structure.`;
 
 export async function parsePipelineFromNL(
   prompt: string,

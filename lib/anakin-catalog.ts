@@ -100,10 +100,13 @@ export function mapAnakinActionToWireAction(
   catalog: CatalogEntry
 ): WireAction {
   const { fields } = normalizeParameters(action.parameters);
-  const requiresAuth =
-    action.auth_mode === "required" ||
-    action.auth_mode === "optional" ||
-    !!action.auth_required;
+  const authMode: WireAction["authMode"] =
+    action.auth_mode === "required" || action.auth_mode === "optional" || action.auth_mode === "none"
+      ? action.auth_mode
+      : action.auth_required
+        ? "required"
+        : "none";
+  const requiresAuth = authMode === "required";
 
   return {
     id: action.action_id,
@@ -112,6 +115,7 @@ export function mapAnakinActionToWireAction(
     description: action.description ?? "",
     category: inferCategory(action.type),
     requiresAuth,
+    authMode,
     inputFields: fields,
     outputFields: [
       {

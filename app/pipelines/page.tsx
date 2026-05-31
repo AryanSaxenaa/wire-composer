@@ -103,11 +103,20 @@ export default function PipelinesPage() {
           </div>
         ) : pipelines.length === 0 ? (
           <div className="cmp-page-center">
-            <p className="text-sm text-[#64748b]">No saved pipelines yet.</p>
+            <div className="cmp-empty-illus" aria-hidden>
+              <svg width="120" height="80" viewBox="0 0 120 80" fill="none">
+                <rect x="4" y="28" width="32" height="24" rx="6" fill="#eff6ff" stroke="#93c5fd" />
+                <rect x="44" y="28" width="32" height="24" rx="6" fill="#f0fdf4" stroke="#86efac" />
+                <rect x="84" y="28" width="32" height="24" rx="6" fill="#faf5ff" stroke="#c4b5fd" />
+                <path d="M36 40h8M76 40h8" stroke="#cbd5e1" strokeWidth="2" />
+              </svg>
+            </div>
+            <p className="text-sm font-medium text-[#334155] mt-4">Build your first pipeline</p>
             <p className="text-xs text-[#94a3b8] max-w-sm text-center">
-              Build a workflow in the composer, then click Save to store it here.
+              Parse in the composer, Save to the library, then Schedule or Deploy Webhook for
+              server-side runs.
             </p>
-            <Link href="/composer" className="cmp-btn cmp-btn--primary">
+            <Link href="/composer" className="cmp-btn cmp-btn--primary mt-2">
               Open composer
             </Link>
           </div>
@@ -116,6 +125,7 @@ export default function PipelinesPage() {
             <div className="cmp-table-head">
               <span>Name</span>
               <span>Nodes</span>
+              <span>Schedule</span>
               <span>Last run</span>
               <span>Status</span>
               <span>Actions</span>
@@ -126,6 +136,9 @@ export default function PipelinesPage() {
                   {p.name}
                 </Link>
                 <span className="cmp-table-muted">{p.nodes.length}</span>
+                <span className="cmp-table-muted font-mono text-[11px]" title={p.schedule || undefined}>
+                  {p.schedule?.trim() ? p.schedule : "—"}
+                </span>
                 <span className="cmp-table-muted">
                   {p.lastRunAt ? new Date(p.lastRunAt).toLocaleString() : "—"}
                 </span>

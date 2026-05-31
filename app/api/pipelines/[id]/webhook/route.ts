@@ -14,7 +14,11 @@ export async function POST(
 
   const webhookId = pipeline.webhookId || nanoid(12);
   const updated = await assignWebhook(id, webhookId);
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+  if (!updated) {
+    return NextResponse.json({ error: "Pipeline not found" }, { status: 404 });
+  }
+  const baseUrl =
+    process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") || "http://localhost:3000";
 
   return NextResponse.json({
     pipeline: updated,

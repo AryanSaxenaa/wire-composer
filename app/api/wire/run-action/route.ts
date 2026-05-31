@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import { registerAnakinActions } from "@/lib/action-registry";
+import { loadAnakinActions } from "@/lib/anakin-catalog";
 import { runWireAction } from "@/lib/wire-client";
 
 export async function POST(req: NextRequest) {
@@ -13,6 +15,9 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const anakinActions = await loadAnakinActions();
+    registerAnakinActions(anakinActions);
+
     const result = await runWireAction(actionId, inputs || {}, credentials || {});
     return NextResponse.json(result);
   } catch (err: unknown) {
@@ -20,9 +25,13 @@ export async function POST(req: NextRequest) {
     const status =
       message.includes("401") || message.includes("Unauthorized")
         ? 401
-        : message.includes("429")
-          ? 429
-          : 500;
+        : message.includes("Forbidden") || message.includes("403")
+          ? 403
+          : message.includes("429")
+            ? 429
+            : message.includes("Insufficient credits")
+              ? 402
+              : 500;
     return NextResponse.json({ error: message }, { status });
   }
 }

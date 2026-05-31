@@ -7,13 +7,17 @@ export interface ActionField {
   example?: string;
 }
 
+export type WireAuthMode = "none" | "optional" | "required";
+
 export interface WireAction {
   id: string;
   platform: string;
   name: string;
   description: string;
   category: "read" | "write" | "search" | "monitor" | "transform";
+  /** @deprecated Prefer authMode — true only when credential_id is mandatory */
   requiresAuth: boolean;
+  authMode: WireAuthMode;
   inputFields: ActionField[];
   outputFields: ActionField[];
 }

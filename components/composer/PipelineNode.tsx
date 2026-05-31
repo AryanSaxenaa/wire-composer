@@ -55,7 +55,7 @@ function PipelineNodeComponent({ id, data, selected }: NodeProps) {
       data-status={displayStatus}
       onClick={openInspector}
     >
-      <Handle type="target" position={Position.Left} />
+      <Handle type="target" position={Position.Left} id="default" />
 
       <div className="node-header">
         <Image
@@ -105,7 +105,7 @@ function PipelineNodeComponent({ id, data, selected }: NodeProps) {
         <p className="px-3 pb-2 text-[11px] text-[#ef4444] font-mono">{String(data.error)}</p>
       )}
 
-      <Handle type="source" position={Position.Right} />
+      <Handle type="source" position={Position.Right} id="default" />
     </div>
   );
 }

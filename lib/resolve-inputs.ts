@@ -1,6 +1,43 @@
 import { PipelineNode, PipelineEdge, AmbiguousMappingState } from "@/types";
 import { getActionById } from "@/lib/action-registry";
 
+/** Wire actions often return list payloads (e.g. `users`, `listings`) instead of flat fields. */
+const NESTED_LIST_KEYS = [
+  "listings",
+  "users",
+  "items",
+  "posts",
+  "children",
+  "products",
+  "repos",
+  "reviews",
+] as const;
+
+function resolveFieldFromOutput(
+  sourceOutput: Record<string, unknown>,
+  fromField: string
+): unknown {
+  if (fromField in sourceOutput) return sourceOutput[fromField];
+
+  const nested = sourceOutput.data;
+  if (nested && typeof nested === "object" && !Array.isArray(nested)) {
+    const fromNested = resolveFieldFromOutput(nested as Record<string, unknown>, fromField);
+    if (fromNested !== undefined) return fromNested;
+  }
+
+  for (const listKey of NESTED_LIST_KEYS) {
+    const list = sourceOutput[listKey];
+    if (!Array.isArray(list) || list.length === 0) continue;
+    const first = list[0];
+    if (first && typeof first === "object" && !Array.isArray(first)) {
+      const row = first as Record<string, unknown>;
+      if (fromField in row) return row[fromField];
+    }
+  }
+
+  return undefined;
+}
+
 export type ResolveResult =
   | { ok: true; inputs: Record<string, unknown> }
   | { ok: false; ambiguous: AmbiguousMappingState };
@@ -18,19 +55,23 @@ export function resolveInputsWithAmbiguity(
 
   for (const edge of incomingEdges) {
     const sourceOutput = nodeOutputs[edge.source];
-    if (!sourceOutput) continue;
+    if (!sourceOutput || sourceOutput.skipped === true) continue;
 
     const sourceNode = allNodes.find((n) => n.id === edge.source);
 
     if (edge.dataMapping.length > 0) {
       for (const mapping of edge.dataMapping) {
         const overrideKey = mappingOverrides?.[node.id]?.[mapping.toField];
-        if (overrideKey && overrideKey in sourceOutput) {
-          resolved[mapping.toField] = sourceOutput[overrideKey];
+        if (overrideKey) {
+          const overrideValue = resolveFieldFromOutput(sourceOutput, overrideKey);
+          if (overrideValue !== undefined) {
+            resolved[mapping.toField] = overrideValue;
+          }
           continue;
         }
-        if (mapping.fromField in sourceOutput) {
-          resolved[mapping.toField] = sourceOutput[mapping.fromField];
+        const mapped = resolveFieldFromOutput(sourceOutput, mapping.fromField);
+        if (mapped !== undefined) {
+          resolved[mapping.toField] = mapped;
         }
       }
       continue;
@@ -42,12 +83,15 @@ export function resolveInputsWithAmbiguity(
 
     for (const toField of targetFields) {
       const overrideKey = mappingOverrides?.[node.id]?.[toField];
-      if (overrideKey && overrideKey in sourceOutput) {
-        resolved[toField] = sourceOutput[overrideKey];
+      if (overrideKey) {
+        const overrideValue = resolveFieldFromOutput(sourceOutput, overrideKey);
+        if (overrideValue !== undefined) {
+          resolved[toField] = overrideValue;
+        }
         continue;
       }
 
-      const exact = sourceOutput[toField];
+      const exact = resolveFieldFromOutput(sourceOutput, toField);
       if (exact !== undefined) {
         resolved[toField] = exact;
         continue;

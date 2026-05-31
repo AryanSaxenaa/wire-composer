@@ -18,6 +18,7 @@
   --section-gap: 120px;
 
   min-height: 100vh;
+  overflow-x: hidden;
   background: var(--bg);
   color: var(--text-primary);
   font-family: var(--font-sans), Inter, system-ui, sans-serif;
@@ -186,10 +187,6 @@
   background: var(--bg);
 }
 
-.lp-hero-glow {
-  height: 440px;
-}
-
 .lp-hero-pattern {
   position: absolute;
   inset: 0;
@@ -210,16 +207,18 @@
 .lp-hero-glow {
   position: absolute;
   left: 50%;
-  bottom: 0;
-  transform: translateX(-50%);
-  width: min(900px, 90%);
-  height: 400px;
+  top: 42%;
+  transform: translate(-50%, -50%);
+  width: min(720px, 85vw);
+  height: min(520px, 55vh);
   pointer-events: none;
   background: radial-gradient(
-    ellipse 80% 100% at 50% 100%,
-    rgba(219, 234, 254, 0.45),
-    transparent 70%
+    ellipse 70% 70% at 50% 50%,
+    rgba(219, 234, 254, 0.55),
+    rgba(219, 234, 254, 0.15) 45%,
+    transparent 72%
   );
+  z-index: 0;
 }
 
 .lp-hero-fade {
@@ -239,8 +238,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: clamp(520px, 72vh, 640px);
-  padding: 120px var(--lp-gutter) 96px;
+  min-height: calc(100vh - 80px);
+  padding: 48px var(--lp-gutter) 64px;
   max-width: var(--lp-content);
   margin: 0 auto;
   box-sizing: border-box;
@@ -302,7 +301,7 @@
   align-items: center;
   justify-content: center;
   gap: 14px;
-  margin-top: 40px;
+  margin-top: 28px;
 }
 
 /* Decorative asset slots — drop PNGs in /public/landing/ */
@@ -868,6 +867,7 @@
 /* ── CTA banner ── */
 .lp-cta-banner {
   padding: 0 0 var(--section-gap);
+  background: linear-gradient(180deg, #f1f5f9 0%, #f8fbff 100%);
 }
 
 .lp-cta-inner {
@@ -933,7 +933,7 @@
 /* ── Footer ── */
 .lp-footer {
   padding: 64px 0 40px;
-  background: var(--surface);
+  background: linear-gradient(180deg, #f8fbff 0%, #f1f5f9 100%);
   border-top: 1px solid var(--border);
 }
 
@@ -1124,5 +1124,133 @@
 
   .lp-cta-cubes {
     display: none;
+  }
+}
+
+/* Hero live demo loop */
+.lp-hero-demo {
+  margin: 28px auto 0;
+  width: 100%;
+  max-width: 640px;
+  padding: 20px;
+  border-radius: 16px;
+  border: 1px solid var(--border);
+  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+  box-shadow: 0 24px 48px rgba(15, 23, 42, 0.08);
+}
+
+.lp-hero-demo-prompt {
+  text-align: left;
+  margin-bottom: 16px;
+}
+
+.lp-hero-demo-phase {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--primary);
+  background: var(--primary-light);
+  padding: 4px 10px;
+  border-radius: 999px;
+}
+
+.lp-hero-demo-text {
+  margin: 10px 0 0;
+  font-size: 14px;
+  color: var(--text-secondary);
+  animation: lp-fade-in 0.4s ease;
+}
+
+.lp-hero-demo-graph {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+}
+
+.lp-hero-demo-node-wrap {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  min-width: 0;
+}
+
+.lp-hero-demo-edge {
+  flex: 1;
+  height: 2px;
+  background: #e2e8f0;
+  margin: 0 4px;
+  transition: background 0.3s;
+}
+
+.lp-hero-demo-edge--on {
+  background: var(--primary);
+}
+
+.lp-hero-demo-node {
+  flex-shrink: 0;
+  padding: 8px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  color: var(--text-muted);
+  opacity: 0.35;
+  transition: opacity 0.35s, border-color 0.35s, color 0.35s;
+}
+
+.lp-hero-demo-node--on {
+  opacity: 1;
+  border-color: #93c5fd;
+  color: var(--text-primary);
+}
+
+.lp-hero-demo-node--pulse {
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.2);
+}
+
+.lp-hero-deco-fallback {
+  width: 100%;
+  max-width: 140px;
+  height: auto;
+}
+
+.lp-feature-visual-svg {
+  width: 100%;
+  max-width: 420px;
+  height: auto;
+}
+
+.lp-cta-cubes {
+  width: 140px;
+  height: auto;
+  flex-shrink: 0;
+}
+
+.lp-visual-pulse {
+  animation: lp-pulse 2s ease-in-out infinite;
+}
+
+@keyframes lp-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes lp-pulse {
+  0%,
+  100% {
+    opacity: 0.5;
+  }
+  50% {
+    opacity: 1;
   }
 }

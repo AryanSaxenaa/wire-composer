@@ -27,6 +27,7 @@ import { useComposerStore } from "@/lib/store";
 import { getActionById } from "@/lib/action-registry";
 import { PipelineNode as PipelineNodeType, PipelineEdge as PipelineEdgeType } from "@/types";
 import { nanoid } from "nanoid";
+import { inferDataMappingForEdge } from "@/lib/infer-edge-mapping";
 
 const nodeTypes = {
   wireAction: PipelineNode,
@@ -61,8 +62,7 @@ function toFlowEdge(edge: PipelineEdgeType): Edge {
     id: edge.id,
     source: edge.source,
     target: edge.target,
-    sourceHandle: edge.sourceHandle,
-    targetHandle: edge.targetHandle,
+    // Nodes expose a single in/out handle; field wiring lives in dataMapping only.
     animated: edge.animated,
     type: "dataFlow",
   };
@@ -183,12 +183,17 @@ export function PipelineCanvas() {
 
   const onConnect = useCallback(
     (connection: Connection) => {
+      const sourceNode = pipeline?.nodes.find((n) => n.id === connection.source);
+      const targetNode = pipeline?.nodes.find((n) => n.id === connection.target);
+      const dataMapping =
+        sourceNode && targetNode
+          ? inferDataMappingForEdge(sourceNode, targetNode)
+          : [];
+
       const newEdge: Edge = {
         id: nanoid(),
         source: connection.source!,
         target: connection.target!,
-        sourceHandle: connection.sourceHandle || "",
-        targetHandle: connection.targetHandle || "",
         animated: false,
         type: "dataFlow",
       };
@@ -197,13 +202,13 @@ export function PipelineCanvas() {
         id: newEdge.id,
         source: newEdge.source,
         target: newEdge.target,
-        sourceHandle: newEdge.sourceHandle || "",
-        targetHandle: newEdge.targetHandle || "",
-        dataMapping: [],
+        sourceHandle: connection.sourceHandle || "default",
+        targetHandle: connection.targetHandle || "default",
+        dataMapping,
         animated: false,
       });
     },
-    [setEdges, addEdgeToStore]
+    [setEdges, addEdgeToStore, pipeline?.nodes]
   );
 
   const onNodeDragStop = useCallback(

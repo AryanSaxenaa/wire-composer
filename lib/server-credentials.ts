@@ -13,8 +13,7 @@ export function getServerCredentialsForNode(
   const password = process.env[`${prefix}_PASSWORD`] ?? process.env[`${prefix}_TOKEN`];
   const sessionCookie = process.env[`${prefix}_SESSION`];
 
-  const credentialId =
-    process.env[`${prefix}_CREDENTIAL_ID`] ?? process.env.ANAKIN_CREDENTIAL_ID;
+  const credentialId = process.env[`${prefix}_CREDENTIAL_ID`];
 
   const creds: Record<string, string> = {};
   if (credentialId) creds.credential_id = credentialId;
@@ -29,4 +28,15 @@ export function getServerCredentialsForNode(
 
   void nodeId;
   return creds;
+}
+
+/** Whether a node has a credential the executor can send to Anakin Wire. */
+export function hasUsableWireCredential(credentials: Record<string, string>): boolean {
+  return !!(
+    credentials.credential_id?.trim() ||
+    credentials.credentialId?.trim() ||
+    credentials.credential?.trim() ||
+    credentials.password?.trim() ||
+    credentials.sessionCookie?.trim()
+  );
 }

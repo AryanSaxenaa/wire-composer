@@ -1,5 +1,7 @@
 import Link from "next/link";
+import { Rocket } from "lucide-react";
 import { LandingHeroDecor } from "./LandingHeroDecor";
+import { LandingHeroDemo } from "./LandingHeroDemo";
 
 /** Place assets in /public/landing/ — see comment in LandingHeroDecor usage */
 const HERO_ASSETS = {
@@ -15,7 +17,7 @@ export function LandingHero() {
 
         <div className="lp-hero-content lp-fade-up">
           <p className="lp-pill-badge">
-            <span aria-hidden>🚀</span> Ship automations. Not scripts.
+            <Rocket size={18} /> Ship automations. Not scripts.
           </p>
 
           <h1 className="lp-hero-h1">
@@ -24,9 +26,8 @@ export function LandingHero() {
           </h1>
 
           <p className="lp-hero-lead">
-            Describe what you want. Get a live pipeline. Wire Composer turns natural
-            language into executable multi-step web automation workflows — no code
-            required.
+            Describe what you want. Get a live pipeline. No code required.<br />
+            <span style={{ whiteSpace: 'nowrap' }}>Wire Composer turns natural language into executable automation workflows.</span>
           </p>
 
           <div className="lp-hero-ctas">
@@ -37,6 +38,8 @@ export function LandingHero() {
               Explore Features
             </Link>
           </div>
+
+          <LandingHeroDemo />
         </div>
       </div>
   );

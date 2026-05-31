@@ -5,7 +5,11 @@ import { runWireAction } from "@/lib/wire-client";
 import { getActionById, registerAnakinActions } from "@/lib/action-registry";
 import { loadAnakinActions } from "@/lib/anakin-catalog";
 import { isBuiltinAction, runBuiltinAction, findClosestActionId } from "@/lib/builtin-actions";
-import { getServerCredentialsForNode } from "@/lib/server-credentials";
+import {
+  getServerCredentialsForNode,
+  hasUsableWireCredential,
+} from "@/lib/server-credentials";
+import { isUnsetInput } from "@/lib/input-utils";
 import { validatePipelineBeforeRun } from "@/lib/pipeline-validation";
 
 export type ExecutorEmit = (
@@ -138,7 +142,7 @@ export async function executePipeline(
 
     if (isBuiltinAction(node.actionId)) {
       const required = action?.inputFields.filter((f) => f.required) ?? [];
-      const missing = required.filter((f) => mergedInputs[f.key] == null || mergedInputs[f.key] === "");
+      const missing = required.filter((f) => isUnsetInput(mergedInputs[f.key]));
       if (missing.length > 0 && node.actionId !== "wire.condition.compare") {
         emit("node_error", {
           nodeId: node.id,
@@ -150,7 +154,7 @@ export async function executePipeline(
     } else if (action) {
       const missing = action.inputFields
         .filter((f) => f.required)
-        .filter((f) => !mergedInputs[f.key] && !node.config?.[f.key]);
+        .filter((f) => isUnsetInput(mergedInputs[f.key]));
       if (missing.length > 0) {
         emit("node_error", {
           nodeId: node.id,
@@ -189,6 +193,11 @@ export async function executePipeline(
         if (isBuiltinAction(node.actionId)) {
           output = await runBuiltinAction(node.actionId, wireInputs);
         } else {
+          if (action?.authMode === "required" && !hasUsableWireCredential(nodeCreds)) {
+            throw new Error(
+              "Unauthorized: This action requires an Anakin identity credential_id. Add it in the node inspector or set WIRE_CRED_*_CREDENTIAL_ID in the server environment."
+            );
+          }
           const result = await runWireAction(node.actionId, wireInputs, nodeCreds);
           output = result.output;
         }
@@ -234,7 +243,7 @@ export async function executePipeline(
           runId,
           failedNodeId: node.id,
           error: message,
-          resumable: true,
+          resumable: is401 && !isTimeout,
         });
         break;
       }

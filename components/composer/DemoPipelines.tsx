@@ -3,17 +3,18 @@
 import { useState } from "react";
 import { Play } from "lucide-react";
 import { DEMO_PIPELINES } from "@/lib/demo-pipelines";
+import { autoLayoutNodes } from "@/lib/auto-layout";
 import { useComposerStore } from "@/lib/store";
 import { Pipeline } from "@/types";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 
 const DEMO_LABELS: Record<string, string> = {
-  "demo-competitor-price-monitor": "Amazon Price Monitor",
+  "demo-github-user-repos": "List GitHub Repos",
+  "demo-github-profile-repos": "GitHub Profile → Repos",
+  "demo-github-search-profile": "GitHub Search → Profile",
   "demo-github-developer-crm": "GitHub Developer CRM",
-  "demo-reddit-thread-monitor": "Reddit Thread Monitor",
   "demo-producthunt-launch-radar": "Product Hunt Launch Radar",
   "demo-airbnb-listing-scan": "Airbnb Listing Scan",
-  "demo-trustpilot-responder": "Trustpilot AI Responder",
 };
 
 export function DemoPipelines() {
@@ -24,15 +25,20 @@ export function DemoPipelines() {
   const [pendingDemo, setPendingDemo] = useState<Pipeline | null>(null);
 
   const loadDemo = (demo: (typeof DEMO_PIPELINES)[number]) => {
-    setPipeline({
-      ...demo,
-      nodes: demo.nodes.map((n) => ({
+    const edges = demo.edges.map((e) => ({ ...e, animated: false }));
+    const nodes = autoLayoutNodes(
+      demo.nodes.map((n) => ({
         ...n,
         status: "idle" as const,
         output: undefined,
         error: undefined,
       })),
-      edges: demo.edges.map((e) => ({ ...e, animated: false })),
+      edges
+    );
+    setPipeline({
+      ...demo,
+      nodes,
+      edges,
     });
     addToast("success", `Loaded “${DEMO_LABELS[demo.id] || demo.name}”`);
   };
@@ -49,7 +55,9 @@ export function DemoPipelines() {
     <div className="cmp-examples">
       <p className="cmp-kicker">DEMO PIPELINES</p>
       <p className="text-[11px] text-[#475569] mb-3 leading-snug">
-        Pre-built workflows using Anakin Wire actions (GitHub, Reddit, Product Hunt, Amazon, and more). Map upstream fields where noted, then Run.
+        Real Anakin Wire workflows (GitHub, Product Hunt, Airbnb). Load a demo, set any required
+        inputs in the inspector, then Run. Auth-none steps work without credentials; others need
+        an Anakin identity in the inspector.
       </p>
       <div className="cmp-examples-list">
         {DEMO_PIPELINES.map((demo) => (
@@ -64,7 +72,7 @@ export function DemoPipelines() {
             <span className="cmp-example-text">
               <strong>{DEMO_LABELS[demo.id] || demo.name}</strong>
               <span className="block text-[10px] text-[#94a3b8] mt-0.5">
-                {demo.nodes.length} steps · real execution
+                {demo.nodes.length} step{demo.nodes.length === 1 ? "" : "s"} · verified
               </span>
             </span>
           </button>

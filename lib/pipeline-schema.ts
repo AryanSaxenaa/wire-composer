@@ -16,6 +16,7 @@ export const WireActionSchema = z.object({
   description: z.string(),
   category: z.enum(["read", "write", "search", "monitor", "transform"]),
   requiresAuth: z.boolean(),
+  authMode: z.enum(["none", "optional", "required"]).optional(),
   inputFields: z.array(ActionFieldSchema),
   outputFields: z.array(ActionFieldSchema),
 });

@@ -65,6 +65,14 @@ vercel.json                     # Cron: */5 → /api/cron/run-scheduled
 wire-composer-build-spec.md     # Full product & API specification
 ```
 
+## Deployment
+
+The application is deployed on Google Cloud Run and securely managed using Google Cloud Secret Manager.
+
+**Production URL:** [https://wire-composer-service-qa4wgkhwga-uc.a.run.app](https://wire-composer-service-qa4wgkhwga-uc.a.run.app)
+
+For detailed deployment and infrastructure information, see [`deployment-info.md`](deployment-info.md).
+
 ## Getting started
 
 ### Prerequisites
@@ -88,7 +96,8 @@ KV_REST_API_URL=https://...
 KV_REST_API_TOKEN=...
 KV_REST_API_READ_ONLY_TOKEN=...
 
-# Production cron (Vercel sends Authorization: Bearer <CRON_SECRET>)
+# Cron: Bearer token for GET /api/cron/run-scheduled
+# Vercel: vercel.json runs every 5 min. Cloud Run: deploy_run_only.ps1 sets up Cloud Scheduler.
 CRON_SECRET=...
 
 # Optional: Anakin Wire credential UUID (from Wire → Identities)

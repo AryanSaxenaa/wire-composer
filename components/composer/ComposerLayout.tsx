@@ -4,6 +4,7 @@ import { NLInputPanel } from "@/components/composer/NLInputPanel";
 import { PipelineCanvas } from "@/components/composer/PipelineCanvas";
 import { NodeInspector } from "@/components/composer/NodeInspector";
 import { TopBar } from "@/components/layout/TopBar";
+import { Sidebar } from "@/components/layout/Sidebar";
 import { RunStatusBar } from "@/components/composer/RunStatusBar";
 import { CredentialsProvider } from "@/lib/credentials-context";
 import { ComposerConfirmHost } from "@/components/composer/ComposerConfirmHost";
@@ -15,8 +16,10 @@ export function ComposerLayout() {
 
   return (
     <CredentialsProvider>
-      <div className="composer-app">
+      <div className="composer-app composer-app--with-nav">
         <ComposerConfirmHost />
+        <Sidebar />
+        <div className="composer-app-main">
         <TopBar />
         <div className="cmp-body">
           <NLInputPanel />
@@ -30,6 +33,7 @@ export function ComposerLayout() {
           >
             {inspectorOpen && <NodeInspector key={selectedNodeId} />}
           </div>
+        </div>
         </div>
       </div>
     </CredentialsProvider>

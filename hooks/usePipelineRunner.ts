@@ -68,7 +68,7 @@ export function usePipelineRunner() {
     const missing: string[] = [];
     pipeline.nodes.forEach((n) => {
       const action = getActionById(n.actionId);
-      if (action?.requiresAuth && !isBuiltinAction(n.actionId)) {
+      if (action?.authMode === "required" && !isBuiltinAction(n.actionId)) {
         const creds = { ...n.credentials, ...allCreds[n.id] };
         const hasCreds =
           creds.credential_id?.trim() ||

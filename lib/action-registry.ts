@@ -9,6 +9,7 @@ export const BUILTIN_ACTIONS: WireAction[] = [
     description: "Pick a field from upstream JSON output",
     category: "transform",
     requiresAuth: false,
+    authMode: "none",
     inputFields: [
       { key: "field", label: "Field", type: "string", required: true, description: "Field key to extract", example: "price" },
       { key: "source", label: "Source", type: "object", required: false, description: "Upstream payload (auto-mapped)" },
@@ -24,6 +25,7 @@ export const BUILTIN_ACTIONS: WireAction[] = [
     description: "Compare a numeric or string value against a threshold",
     category: "transform",
     requiresAuth: false,
+    authMode: "none",
     inputFields: [
       { key: "value", label: "Value", type: "string", required: false, description: "Value to compare" },
       { key: "threshold", label: "Threshold", type: "number", required: true, description: "Threshold", example: "29.99" },
@@ -40,6 +42,7 @@ export const BUILTIN_ACTIONS: WireAction[] = [
     description: "Filter review list by star rating",
     category: "transform",
     requiresAuth: false,
+    authMode: "none",
     inputFields: [
       { key: "reviews", label: "Reviews", type: "object", required: true, description: "Review array from upstream" },
       { key: "minStars", label: "Min stars", type: "number", required: false, description: "Minimum rating", example: "1" },
@@ -58,6 +61,7 @@ export const BUILTIN_ACTIONS: WireAction[] = [
     description: "Generate text with DeepSeek from upstream context",
     category: "transform",
     requiresAuth: false,
+    authMode: "none",
     inputFields: [
       { key: "prompt", label: "Prompt", type: "string", required: true, description: "Instruction for the model" },
       { key: "reviewText", label: "Context", type: "string", required: false, description: "Text to transform" },
@@ -73,6 +77,7 @@ export const BUILTIN_ACTIONS: WireAction[] = [
     description: "Expose POST body as trigger.data for downstream nodes",
     category: "read",
     requiresAuth: false,
+    authMode: "none",
     inputFields: [
       { key: "triggerData", label: "Trigger data", type: "object", required: false, description: "Webhook JSON body" },
     ],
@@ -85,7 +90,8 @@ export const BUILTIN_ACTIONS: WireAction[] = [
 let anakinIndex = new Map<string, WireAction>();
 
 export function registerAnakinActions(actions: WireAction[]): void {
-  anakinIndex = new Map(actions.map((a) => [a.id, a]));
+  if (actions.length === 0) return;
+  for (const action of actions) anakinIndex.set(action.id, action);
 }
 
 export function getAllRegisteredActions(): WireAction[] {

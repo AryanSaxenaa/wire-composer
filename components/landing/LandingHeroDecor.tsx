@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { LandingFloatingCubes } from "./LandingFloatingCubes";
 
 type LandingHeroDecorProps = {
   src: string;
@@ -8,19 +9,21 @@ type LandingHeroDecorProps = {
 };
 
 export function LandingHeroDecor({ src, className }: LandingHeroDecorProps) {
-  const [visible, setVisible] = useState(true);
+  const [useFallback, setUseFallback] = useState(false);
 
   return (
-    <div className={className} aria-hidden data-asset={src}>
-      {visible ? (
+    <div className={className} aria-hidden>
+      {useFallback ? (
+        <LandingFloatingCubes className="lp-hero-deco-fallback" count={4} />
+      ) : (
         // eslint-disable-next-line @next/next/no-img-element
         <img
           src={src}
           alt=""
           className="lp-hero-deco-img"
-          onError={() => setVisible(false)}
+          onError={() => setUseFallback(true)}
         />
-      ) : null}
+      )}
     </div>
   );
 }

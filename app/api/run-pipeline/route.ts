@@ -2,6 +2,9 @@ import { NextRequest } from "next/server";
 import { PipelineRunOptions } from "@/types";
 import { executePipeline } from "@/lib/pipeline-executor";
 
+export const runtime = "nodejs";
+export const maxDuration = 300;
+
 function sseEvent(data: Record<string, unknown>) {
   const type = data.event as string;
   const payload = { ...data };

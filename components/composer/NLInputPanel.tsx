@@ -8,9 +8,9 @@ import { DemoPipelines } from "@/components/composer/DemoPipelines";
 import { useComposerStore } from "@/lib/store";
 
 const PLACEHOLDER_PROMPTS = [
-  "Track an Amazon ASIN price and fetch reviews when it drops below a threshold.",
-  "Search GitHub for developers in the US with 1000+ followers, then list their repos.",
-  "Monitor r/programming hot posts and extract the top thread title.",
+  "List public GitHub repositories for user teknium1.",
+  "Search GitHub for developers with 1000+ followers, then list their repos.",
+  "Search Airbnb in San Francisco and get details for the first listing.",
 ];
 
 export function NLInputPanel() {

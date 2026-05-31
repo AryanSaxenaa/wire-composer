@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getPipeline, updatePipeline, deletePipeline } from "@/lib/pipeline-store";
+import { sanitizePipelineForStorage } from "@/lib/sanitize-pipeline";
 import { Pipeline } from "@/types";
 
 export async function GET(
@@ -19,12 +20,22 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
-  const body: Pipeline = await req.json();
-  const pipeline = await updatePipeline(id, {
-    ...body,
+  let body: Pipeline;
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+  }
+  const pipeline = await updatePipeline(
     id,
-    updatedAt: new Date().toISOString(),
-  });
+    sanitizePipelineForStorage({
+      ...body,
+      id,
+    })
+  );
+  if (!pipeline) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
   return NextResponse.json({ pipeline });
 }
 
@@ -33,6 +44,10 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
+  const existing = await getPipeline(id);
+  if (!existing) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
   await deletePipeline(id);
   return NextResponse.json({ success: true });
 }

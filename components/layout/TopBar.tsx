@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState, useCallback, useEffect } from "react";
 import { useComposerStore } from "@/lib/store";
 import { usePipelineRunner } from "@/hooks/usePipelineRunner";
@@ -10,6 +11,7 @@ import { preparePipelineForStorage } from "@/lib/sanitize-pipeline";
 import { useCredentials } from "@/lib/credentials-context";
 
 export function TopBar() {
+  const router = useRouter();
   const pipeline = useComposerStore((s) => s.pipeline);
   const pipelinePersisted = useComposerStore((s) => s.pipelinePersisted);
   const clearPipeline = useComposerStore((s) => s.clearPipeline);
@@ -68,26 +70,46 @@ export function TopBar() {
   }, [pipeline, name, pipelinePersisted, saving, getAllCredentials]);
 
   const handleSaveSchedule = useCallback(async () => {
-    if (!pipeline) return;
-    const updated = { ...pipeline, schedule: scheduleCron };
-    useComposerStore.setState({ pipeline: updated, pipelinePersisted: false });
+    if (!pipeline || saving) return;
+    const updated = preparePipelineForStorage(
+      {
+        ...pipeline,
+        name: name.trim() || pipeline.name,
+        schedule: scheduleCron.trim() || undefined,
+      },
+      getAllCredentials()
+    );
 
-    if (pipelinePersisted) {
-      try {
-        await fetch(`/api/pipelines/${pipeline.id}`, {
-          method: "PUT",
+    setSaving(true);
+    try {
+      const isUpdate = pipelinePersisted && pipeline.id;
+      const res = await fetch(
+        isUpdate ? `/api/pipelines/${pipeline.id}` : "/api/pipelines",
+        {
+          method: isUpdate ? "PUT" : "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(preparePipelineForStorage(updated, getAllCredentials())),
-        });
-        useComposerStore.getState().addToast("success", "Schedule saved");
-      } catch {
-        useComposerStore.getState().addToast("error", "Schedule saved locally — save pipeline to persist");
+          body: JSON.stringify(updated),
+        }
+      );
+      const data = await res.json();
+      if (data.pipeline) {
+        useComposerStore.getState().setPipeline(data.pipeline, { fromStorage: true });
+        useComposerStore.getState().addToast(
+          "success",
+          updated.schedule
+            ? "Pipeline saved — server cron will run on schedule"
+            : "Pipeline saved — schedule cleared"
+        );
+        setScheduleOpen(false);
+      } else {
+        useComposerStore.getState().addToast("error", data.error || "Could not save schedule");
       }
-    } else {
-      useComposerStore.getState().addToast("success", "Schedule set — save pipeline to enable cron");
+    } catch {
+      useComposerStore.getState().addToast("error", "Save failed — check KV configuration");
+    } finally {
+      setSaving(false);
     }
-    setScheduleOpen(false);
-  }, [pipeline, scheduleCron, pipelinePersisted, getAllCredentials]);
+  }, [pipeline, scheduleCron, pipelinePersisted, saving, name, getAllCredentials]);
 
   const handleDeployWebhook = useCallback(async () => {
     if (!pipeline) return;
@@ -199,6 +221,7 @@ export function TopBar() {
           className="cmp-btn"
           onClick={() => {
             if (!pipeline) {
+              router.push("/composer");
               clearPipeline();
               return;
             }
@@ -207,7 +230,10 @@ export function TopBar() {
               message: "Discard the current canvas? Unsaved changes will be lost.",
               confirmLabel: "Discard",
               variant: "danger",
-              onConfirm: () => clearPipeline(),
+              onConfirm: () => {
+                clearPipeline();
+                router.push("/composer");
+              },
             });
           }}
         >
@@ -238,6 +264,11 @@ export function TopBar() {
         <button type="button" className="cmp-btn" onClick={handleDeployWebhook} disabled={!pipeline}>
           Deploy Webhook
         </button>
+        {runStatus === "running" && (
+          <button type="button" className="cmp-btn" onClick={cancel}>
+            Cancel
+          </button>
+        )}
         <button
           type="button"
           className="cmp-btn cmp-btn--primary"
@@ -287,14 +318,21 @@ export function TopBar() {
               onChange={(e) => setScheduleCron(e.target.value)}
             />
             <p className="text-[10px] text-[#94a3b8] mt-2">
-              Vercel cron checks every 5 minutes via <code className="font-mono">/api/cron/run-scheduled</code>
+              Cron expressions use UTC. The server checks every ~5 minutes (
+              <code className="font-mono">/api/cron/run-scheduled</code>). Save the pipeline so
+              the schedule is stored in the library.
             </p>
             <div className="flex gap-2 mt-4 justify-end">
               <button type="button" className="cmp-btn" onClick={() => setScheduleOpen(false)}>
                 Cancel
               </button>
-              <button type="button" className="cmp-btn cmp-btn--primary" onClick={handleSaveSchedule}>
-                Save schedule
+              <button
+                type="button"
+                className="cmp-btn cmp-btn--primary"
+                onClick={handleSaveSchedule}
+                disabled={saving}
+              >
+                {saving ? "Saving…" : "Save & enable schedule"}
               </button>
             </div>
           </div>

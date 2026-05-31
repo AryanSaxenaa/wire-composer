@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { listPipelines, createPipeline } from "@/lib/pipeline-store";
+import { sanitizePipelineForStorage } from "@/lib/sanitize-pipeline";
 import { Pipeline } from "@/types";
 import { nanoid } from "nanoid";
 
@@ -16,12 +17,11 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   try {
     const body: Pipeline = await req.json();
-    const pipeline: Pipeline = {
+    const pipeline = sanitizePipelineForStorage({
       ...body,
       id: body.id || nanoid(),
       createdAt: body.createdAt || new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
+    });
     const created = await createPipeline(pipeline);
     return NextResponse.json({ pipeline: created }, { status: 201 });
   } catch (err: unknown) {

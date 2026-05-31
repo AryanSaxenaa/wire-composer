@@ -167,8 +167,8 @@ const FOOTER_COLUMNS = [
   {
     title: "Resources",
     links: [
-      { href: "https://github.com/your-username/wire-composer", label: "GitHub" },
-      { href: "#how-it-works", label: "How it works" },
+      { href: "https://anakin.io", label: "Anakin Wire" },
+      { href: "https://github.com/AryanSaxenaa", label: "GitHub" },
     ],
   },
 ] as const;
@@ -294,7 +294,7 @@ export function LandingPage() {
                 Start Building →
               </Link>
             </div>
-            <img src="/landing/H2.png" alt="" className="lp-cta-cubes" />
+            <img className="lp-cta-cubes" src="/landing/H2.png" alt="" aria-hidden />
           </div>
         </div>
       </section>
@@ -311,24 +311,8 @@ export function LandingPage() {
                 Build web automations in plain English.
               </p>
               <div className="lp-footer-social">
-                <a href="#" aria-label="Twitter">
-                  <svg width="18" height="18" viewBox="0 0 18 18" fill="currentColor">
-                    <path d="M14.2 4.5h-1.4l-3.1 3.5L7.2 4.5H3.5l4.8 5.5-5.1 5.5h1.4l3.4-3.9 2.5 3.9h3.7l-5-5.7 5.4-5.3z" />
-                  </svg>
-                </a>
-                <a href="#" aria-label="GitHub">
-                  <svg width="18" height="18" viewBox="0 0 18 18" fill="currentColor">
-                    <path
-                      fillRule="evenodd"
-                      clipRule="evenodd"
-                      d="M9 1.5C4.86 1.5 1.5 4.86 1.5 9c0 3.74 2.42 6.9 5.78 8.02.42.08.58-.18.58-.4v-1.4c-2.35.52-2.84-1.13-2.84-1.13-.38-.97-.94-1.23-.94-1.23-.77-.53.06-.52.06-.52.85.06 1.3.88 1.3.88.76 1.3 2 .92 2.48.7.08-.55.3-.92.54-1.13-1.88-.21-3.85-.94-3.85-4.18 0-.92.33-1.68.88-2.27-.09-.22-.38-1.12.08-2.33 0 0 .72-.23 2.36.87a8.2 8.2 0 012.16-.29c.73 0 1.47.1 2.16.29 1.64-1.1 2.36-.87 2.36-.87.46 1.21.17 2.11.08 2.33.55.59.88 1.35.88 2.27 0 3.25-1.98 3.97-3.86 4.17.3.26.58.78.58 1.57v2.33c0 .22.16.49.58.4A6.51 6.51 0 0016.5 9c0-4.14-3.36-7.5-7.5-7.5z"
-                    />
-                  </svg>
-                </a>
-                <a href="#" aria-label="LinkedIn">
-                  <svg width="18" height="18" viewBox="0 0 18 18" fill="currentColor">
-                    <path d="M4.5 2.25A1.5 1.5 0 103 3.75 1.5 1.5 0 004.5 2.25zM3 6.75h3v9.75H3V6.75zm4.5 0h2.88v1.34h.04c.4-.76 1.38-1.56 2.84-1.56 3.04 0 3.6 2 3.6 4.6v5.37H10.5v-4.76c0-1.14-.02-2.6-1.58-2.6-1.58 0-1.82 1.24-1.82 2.52v4.84H7.5V6.75z" />
-                  </svg>
+                <a href="https://github.com/AryanSaxenaa" target="_blank" rel="noopener noreferrer" aria-label="AryanSaxenaa on GitHub">
+                  Built by <span>AryanSaxenaa</span>
                 </a>
               </div>
             </div>

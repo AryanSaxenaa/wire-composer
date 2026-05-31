@@ -7,6 +7,7 @@ import {
   WireAction,
   AmbiguousMappingState,
 } from "@/types";
+import { autoLayoutNodes } from "@/lib/auto-layout";
 
 type ToastType = "success" | "error" | "info";
 
@@ -286,13 +287,16 @@ export const useComposerStore = create<ComposerStore>((set, get) => ({
         return;
       }
 
+      const edges: PipelineEdge[] = data.pipeline.edges;
+      const nodes = autoLayoutNodes(data.pipeline.nodes, edges);
+
       const pipeline: Pipeline = {
         id: data.pipeline.id || crypto.randomUUID(),
         name: data.pipeline.name,
         description: data.pipeline.description,
         naturalLanguagePrompt: prompt,
-        nodes: data.pipeline.nodes,
-        edges: data.pipeline.edges,
+        nodes,
+        edges,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       };

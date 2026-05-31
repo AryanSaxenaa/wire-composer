@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getPipelineByWebhookId, recordScheduledRun } from "@/lib/pipeline-store";
+import { getPipelineByWebhookId, recordPipelineRun } from "@/lib/pipeline-store";
 import { executePipeline } from "@/lib/pipeline-executor";
 
 export const runtime = "nodejs";
@@ -31,7 +31,7 @@ export async function POST(
     }
   );
 
-  await recordScheduledRun(pipeline.id, success ? "success" : "error");
+  await recordPipelineRun(pipeline.id, success ? "success" : "error");
 
   return NextResponse.json({
     success,

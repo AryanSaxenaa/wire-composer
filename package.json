@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test:cron": "node scripts/test-cron-due.mjs",
+    "diagnose:anakin": "node --env-file=.env.local scripts/diagnose-anakin-wire.mjs"
   },
   "dependencies": {
     "@vercel/kv": "^2",

@@ -57,13 +57,16 @@ export function NodeInspector() {
     [node, updateNode]
   );
 
-  const handleSaveCredentials = useCallback(() => {
+  const syncCredentialsToSession = useCallback(() => {
     if (!node) return;
-    const sessionCreds = {
+    const sessionCreds: Record<string, string> = {
+      platform: node.platform,
       ...(credentialId.trim() ? { credential_id: credentialId.trim() } : {}),
-      username: credentialUsername,
-      password: credentialPassword,
-      ...(showSession && credentialSession ? { sessionCookie: credentialSession } : {}),
+      ...(credentialUsername.trim() ? { username: credentialUsername.trim() } : {}),
+      ...(credentialPassword.trim() ? { password: credentialPassword.trim() } : {}),
+      ...(showSession && credentialSession.trim()
+        ? { sessionCookie: credentialSession.trim() }
+        : {}),
     };
     setNodeCredentials(node.id, sessionCreds);
     updateNode(node.id, {
@@ -76,6 +79,21 @@ export function NodeInspector() {
     node,
     setNodeCredentials,
     updateNode,
+    credentialId,
+    credentialUsername,
+    credentialPassword,
+    credentialSession,
+    showSession,
+  ]);
+
+  useEffect(() => {
+    if (!node || action?.authMode === "none") return;
+    const timer = window.setTimeout(() => syncCredentialsToSession(), 400);
+    return () => window.clearTimeout(timer);
+  }, [
+    node,
+    action?.authMode,
+    syncCredentialsToSession,
     credentialId,
     credentialUsername,
     credentialPassword,
@@ -148,8 +166,13 @@ export function NodeInspector() {
           </div>
           <h3>{action?.name || node.label}</h3>
           <p className="text-xs text-[#64748b] mt-2 leading-relaxed">{action?.description}</p>
-          {action?.requiresAuth && (
-            <p className="text-xs text-[#b45309] mt-2">Authentication required for this step.</p>
+          {action?.authMode === "required" && (
+            <p className="text-xs text-[#b45309] mt-2">Anakin identity required for this step.</p>
+          )}
+          {action?.authMode === "optional" && (
+            <p className="text-xs text-[#64748b] mt-2">
+              Optional: connect an Anakin identity to run authenticated.
+            </p>
           )}
         </div>
 
@@ -196,7 +219,7 @@ export function NodeInspector() {
           </div>
         </div>
 
-        {action?.requiresAuth && (
+        {action && action.authMode !== "none" && (
           <div className="cmp-inspector-section">
             <div className="cmp-alert cmp-alert--warn mb-3">
               Wire uses Anakin credential IDs from your Identities dashboard. Values here are
@@ -275,9 +298,9 @@ export function NodeInspector() {
                   />
                 </div>
               )}
-              <button type="button" className="cmp-btn" onClick={handleSaveCredentials}>
-                Store credentials for run
-              </button>
+              <p className="text-[10px] text-[#94a3b8]">
+                Credentials sync automatically for the next run.
+              </p>
             </div>
           </div>
         )}

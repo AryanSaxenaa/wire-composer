@@ -1,14 +1,12 @@
 "use client";
 
-import { Globe, ClipboardList, Code2, Star } from "lucide-react";
+import { Globe, Code2, Star, Home } from "lucide-react";
 
 const ICON_MAP: Record<string, React.ReactNode> = {
   globe: <Globe size={16} />,
-  clipboard: <ClipboardList size={16} />,
   code2: <Code2 size={16} />,
   star: <Star size={16} />,
-  in: <span style={{ fontSize: 11, fontWeight: 800, color: "#0a66c2" }}>in</span>,
-  a: <span style={{ fontSize: 13, fontWeight: 700 }}>a</span>,
+  home: <Home size={16} />,
 };
 
 interface ExamplePipelinesProps {
@@ -17,12 +15,12 @@ interface ExamplePipelinesProps {
 }
 
 const EXAMPLES: { text: string; icon: string; tone: string }[] = [
+  { text: "List public GitHub repos for user teknium1", icon: "code2", tone: "gray" },
   { text: "Search GitHub developers → list their repos", icon: "code2", tone: "gray" },
-  { text: "Monitor r/programming hot posts → extract titles", icon: "globe", tone: "blue" },
   { text: "Product Hunt trending → load launch details", icon: "star", tone: "pink" },
-  { text: "Track Amazon ASIN price → fetch reviews if low", icon: "a", tone: "orange" },
-  { text: "Search Airbnb listings → get listing details", icon: "globe", tone: "green" },
-  { text: "Trustpilot 1-star reviews → draft AI replies", icon: "clipboard", tone: "purple" },
+  { text: "Search Airbnb listings → get listing details", icon: "home", tone: "green" },
+  { text: "Get GitHub profile then list repositories", icon: "code2", tone: "gray" },
+  { text: "Search GitHub users and load profile details", icon: "code2", tone: "gray" },
 ];
 
 export function ExamplePipelines({ onSelect, disabled }: ExamplePipelinesProps) {
