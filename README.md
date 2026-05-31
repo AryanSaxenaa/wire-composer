@@ -2,6 +2,17 @@
 
 No-code visual pipeline builder: describe a workflow in plain English, get an executable multi-step graph backed by the [Anakin Wire API](https://anakin.io). No user accounts — runs use your API keys (server-side for Wire; session-only for optional credentials).
 
+## Live app
+
+| | Link |
+|---|------|
+| **Production** | https://wire-composer-service-qa4wgkhwga-uc.a.run.app |
+| Landing | https://wire-composer-service-qa4wgkhwga-uc.a.run.app/ |
+| Composer | https://wire-composer-service-qa4wgkhwga-uc.a.run.app/composer |
+| Pipeline library | https://wire-composer-service-qa4wgkhwga-uc.a.run.app/pipelines |
+| **Source** | https://github.com/AryanSaxenaa/wire-composer |
+| **Anakin Wire** | https://anakin.io |
+
 ## Features
 
 - **NL → DAG** — `POST /api/parse-pipeline` (DeepSeek) builds nodes, edges, and field mappings; sidebar **Examples** load verified curated templates (Polymarket, GitHub, Product Hunt, Airbnb).
@@ -86,10 +97,10 @@ node --env-file=.env.local scripts/test-parse-pipeline-local.mjs
 
 | Route | Purpose |
 |-------|---------|
-| `/` | Landing |
-| `/composer` | Build / run pipelines |
-| `/pipelines` | Saved pipelines |
-| `/pipelines/[id]?run=1` | Open and auto-run |
+| [`/`](https://wire-composer-service-qa4wgkhwga-uc.a.run.app/) | Landing |
+| [`/composer`](https://wire-composer-service-qa4wgkhwga-uc.a.run.app/composer) | Build / run pipelines |
+| [`/pipelines`](https://wire-composer-service-qa4wgkhwga-uc.a.run.app/pipelines) | Saved pipelines |
+| `/pipelines/[id]?run=1` | Open saved pipeline and auto-run |
 
 ## API (summary)
 
@@ -102,4 +113,4 @@ node --env-file=.env.local scripts/test-parse-pipeline-local.mjs
 | GET | `/api/wire/actions` | Action catalogue |
 | POST | `/api/wire/run-action` | Single Wire action |
 
-Deployment details: see `deployment-info.md` (gitignored locally if you keep secrets there).
+Deployed on [Google Cloud Run](https://cloud.google.com/run) (`us-central1`). Local deploy scripts (`deploy_run_only.ps1`, `Dockerfile`) are gitignored — use them from your machine with `.env.local` and `gcloud` configured.
