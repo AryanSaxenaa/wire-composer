@@ -248,6 +248,17 @@ export function PipelineCanvas() {
         dataMapping,
         animated: false,
       });
+
+      if (typeof pendo !== "undefined") {
+        pendo.track("pipeline_edge_created", {
+          pipelineId: pipeline?.id,
+          sourceNodeId: connection.source,
+          targetNodeId: connection.target,
+          sourceActionId: sourceNode?.actionId,
+          targetActionId: targetNode?.actionId,
+          dataMappingCount: dataMapping.length,
+        });
+      }
     },
     [setEdges, addEdgeToStore, pipeline?.nodes]
   );

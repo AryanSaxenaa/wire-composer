@@ -29,11 +29,19 @@ export function NLInputPanel() {
 
   const handleExample = useCallback(
     (example: string) => {
+      const replacedExisting = !!(pipeline && pipeline.nodes.length > 0);
       const runParse = () => {
         setPrompt(example);
         parse(example);
+
+        if (typeof pendo !== "undefined") {
+          pendo.track("example_pipeline_selected", {
+            exampleText: example.substring(0, 200),
+            replacedExisting,
+          });
+        }
       };
-      if (pipeline && pipeline.nodes.length > 0) {
+      if (replacedExisting) {
         openConfirm({
           title: "Replace pipeline?",
           message: "Parsing this example will replace your current canvas.",

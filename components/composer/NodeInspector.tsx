@@ -147,6 +147,16 @@ export function NodeInspector() {
                   type="button"
                   className="cmp-btn text-left"
                   onClick={() => {
+                    if (typeof pendo !== "undefined") {
+                      pendo.track("ambiguous_mapping_resolved", {
+                        pipelineId: pipeline?.id,
+                        nodeId: ambiguousMapping.nodeId,
+                        targetField: ambiguousMapping.targetField,
+                        selectedFromField: opt.fromField,
+                        optionCount: ambiguousMapping.options.length,
+                        sourceNodeLabel: opt.sourceLabel,
+                      });
+                    }
                     resolveAmbiguousMapping(opt.fromField);
                     resume();
                   }}

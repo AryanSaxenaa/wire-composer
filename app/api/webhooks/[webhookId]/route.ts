@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getPipelineByWebhookId, recordPipelineRun } from "@/lib/pipeline-store";
 import { executePipeline } from "@/lib/pipeline-executor";
+import { pendoTrackServer } from "@/lib/pendo-server";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -32,6 +33,15 @@ export async function POST(
   );
 
   await recordPipelineRun(pipeline.id, success ? "success" : "error");
+
+  void pendoTrackServer("webhook_triggered", {
+    webhookId,
+    pipelineId: pipeline.id,
+    pipelineName: (pipeline.name || "").substring(0, 50),
+    success,
+    nodeCount: pipeline.nodes.length,
+    triggerDataKeys: Object.keys(triggerData).slice(0, 10).join(","),
+  });
 
   return NextResponse.json({
     success,

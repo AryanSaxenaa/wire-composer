@@ -180,6 +180,22 @@ export function usePipelineRunner() {
             );
           }
           addToast("success", "Pipeline completed");
+
+          if (typeof pendo !== "undefined") {
+            const ctx = useComposerStore.getState().runContext;
+            const durationMs = ctx?.startedAt
+              ? Date.now() - new Date(ctx.startedAt).getTime()
+              : undefined;
+            pendo.track("pipeline_run_completed", {
+              pipelineId: live?.id,
+              pipelineName: (live?.name || "").substring(0, 50),
+              nodeCount: live?.nodes.length,
+              totalStepsCompleted: live?.nodes.filter((n) => n.status === "success").length,
+              durationMs,
+              runId: ctx?.runId,
+            });
+          }
+
           break;
         }
         case "pipeline_failed": {
@@ -209,6 +225,23 @@ export function usePipelineRunner() {
             setRunPaused(false, null, null);
             addToast("error", String(errText));
           }
+
+          if (typeof pendo !== "undefined") {
+            const failedNode = live?.nodes.find((n) => n.id === failedId);
+            pendo.track("pipeline_run_failed", {
+              pipelineId: live?.id,
+              pipelineName: (live?.name || "").substring(0, 50),
+              failedNodeId: failedId,
+              failedActionId: failedNode?.actionId,
+              errorMessage: String(errText).substring(0, 100),
+              isResumable: !!eventData.resumable,
+              is401: !!eventData.is401,
+              isTimeout: !!eventData.isTimeout,
+              is429: !!eventData.is429,
+              stepsCompleted: live?.nodes.filter((n) => n.status === "success").length,
+            });
+          }
+
           break;
         }
       }
@@ -381,12 +414,36 @@ export function usePipelineRunner() {
         });
         if (missing[0]) setSelectedNodeId(missing[0]);
         addToast("error", "Missing credentials — open node inspector");
+
+        if (typeof pendo !== "undefined") {
+          pendo.track("credential_validation_failed", {
+            pipelineId: pipeline.id,
+            missingNodeCount: missing.length,
+            missingNodeIds: missing.slice(0, 5).join(","),
+            missingPlatforms: missing
+              .map((id) => pipeline.nodes.find((n) => n.id === id)?.platform)
+              .filter(Boolean)
+              .slice(0, 5)
+              .join(","),
+          });
+        }
+
         return { success: false, cancelled: false };
       }
       setMissingCredentials([]);
       resetRun();
       setRunStatus("running");
       setRunPaused(false, null, null);
+
+      if (typeof pendo !== "undefined") {
+        pendo.track("pipeline_run_started", {
+          pipelineId: pipeline.id,
+          pipelineName: (pipeline.name || "").substring(0, 50),
+          nodeCount: pipeline.nodes.length,
+          edgeCount: pipeline.edges.length,
+          isPersisted: useComposerStore.getState().pipelinePersisted,
+        });
+      }
 
       return streamRun(options);
     },
@@ -407,6 +464,17 @@ export function usePipelineRunner() {
     const outputs = useComposerStore.getState().pausedNodeOutputs;
     const fromId = useComposerStore.getState().pausedFromNodeId;
     setRateLimitSeconds(null);
+
+    if (typeof pendo !== "undefined") {
+      const live = useComposerStore.getState().pipeline;
+      pendo.track("pipeline_run_resumed", {
+        pipelineId: live?.id,
+        resumeFromNodeId: fromId,
+        nodesAlreadyCompleted: outputs ? Object.keys(outputs).length : 0,
+        totalNodes: live?.nodes.length,
+      });
+    }
+
     if (!outputs || !fromId) {
       return run();
     }
@@ -421,6 +489,17 @@ export function usePipelineRunner() {
       pipeline?.nodes.forEach((n) => {
         if (n.output && n.id !== nodeId) outputs[n.id] = n.output;
       });
+
+      if (typeof pendo !== "undefined") {
+        const node = pipeline?.nodes.find((n) => n.id === nodeId);
+        pendo.track("pipeline_node_retried", {
+          pipelineId: pipeline?.id,
+          retriedNodeId: nodeId,
+          retriedActionId: node?.actionId,
+          retriedPlatform: node?.platform,
+        });
+      }
+
       updateNode(nodeId, { status: "idle", error: undefined, output: undefined });
       setRunStatus("running");
       return streamRun({ startFromNodeId: nodeId, initialNodeOutputs: outputs });
@@ -429,6 +508,16 @@ export function usePipelineRunner() {
   );
 
   const cancel = useCallback(() => {
+    if (typeof pendo !== "undefined") {
+      const live = useComposerStore.getState().pipeline;
+      pendo.track("pipeline_run_cancelled", {
+        pipelineId: live?.id,
+        pipelineName: (live?.name || "").substring(0, 50),
+        nodeCount: live?.nodes.length,
+        nodesCompletedBeforeCancel: live?.nodes.filter((n) => n.status === "success").length,
+      });
+    }
+
     abortRef.current?.abort();
     abortRef.current = null;
     setRunStatus("idle");
