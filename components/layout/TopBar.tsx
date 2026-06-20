@@ -58,6 +58,18 @@ export function TopBar() {
       if (data.pipeline) {
         useComposerStore.getState().setPipeline(data.pipeline, { fromStorage: true });
         useComposerStore.getState().addToast("success", "Pipeline saved");
+
+        if (typeof pendo !== "undefined") {
+          pendo.track("pipeline_saved", {
+            pipelineId: data.pipeline.id,
+            pipelineName: (data.pipeline.name || "").substring(0, 50),
+            nodeCount: data.pipeline.nodes?.length,
+            edgeCount: data.pipeline.edges?.length,
+            isUpdate: !!isUpdate,
+            hasSchedule: !!data.pipeline.schedule,
+            hasWebhook: !!data.pipeline.webhookId,
+          });
+        }
       } else {
         useComposerStore.getState().addToast("error", data.error || "Save failed");
       }
@@ -100,6 +112,17 @@ export function TopBar() {
             : "Pipeline saved — schedule cleared"
         );
         setScheduleOpen(false);
+
+        if (typeof pendo !== "undefined") {
+          pendo.track("schedule_configured", {
+            pipelineId: data.pipeline.id,
+            pipelineName: (data.pipeline.name || "").substring(0, 50),
+            cronExpression: (updated.schedule || "").substring(0, 30),
+            schedulePreset,
+            isScheduleCleared: !updated.schedule,
+            isNewPipeline: !isUpdate,
+          });
+        }
       } else {
         useComposerStore.getState().addToast("error", data.error || "Could not save schedule");
       }
@@ -125,6 +148,14 @@ export function TopBar() {
           useComposerStore.getState().setPipeline(data.pipeline, { fromStorage: true });
         }
         useComposerStore.getState().addToast("success", "Webhook URL ready");
+
+        if (typeof pendo !== "undefined") {
+          pendo.track("webhook_deployed", {
+            pipelineId: pipeline.id,
+            pipelineName: (pipeline.name || "").substring(0, 50),
+            webhookUrl: (data.webhookUrl || "").substring(0, 200),
+          });
+        }
       } else {
         useComposerStore.getState().addToast("error", data.error || "Webhook deploy failed");
       }
@@ -162,7 +193,14 @@ export function TopBar() {
     if (!webhookModalUrl) return;
     void navigator.clipboard.writeText(webhookModalUrl);
     useComposerStore.getState().addToast("success", "Webhook URL copied");
-  }, [webhookModalUrl]);
+
+    if (typeof pendo !== "undefined") {
+      pendo.track("webhook_url_copied", {
+        pipelineId: pipeline?.id,
+        webhookUrl: webhookModalUrl.substring(0, 200),
+      });
+    }
+  }, [webhookModalUrl, pipeline?.id]);
 
   return (
     <header className="cmp-topbar">

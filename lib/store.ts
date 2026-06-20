@@ -284,6 +284,15 @@ export const useComposerStore = create<ComposerStore>((set, get) => ({
           clarificationQuestion: data.clarificationQuestion,
           parseReasoning: data.reasoning,
         });
+
+        if (typeof window !== "undefined" && typeof pendo !== "undefined") {
+          pendo.track("pipeline_clarification_requested", {
+            promptLength: prompt.length,
+            clarificationQuestion: (data.clarificationQuestion || "").substring(0, 200),
+            reasoning: (data.reasoning || "").substring(0, 200),
+          });
+        }
+
         return;
       }
 
@@ -308,11 +317,29 @@ export const useComposerStore = create<ComposerStore>((set, get) => ({
         clarificationQuestion: null,
         parseReasoning: data.reasoning,
       });
+
+      if (typeof window !== "undefined" && typeof pendo !== "undefined") {
+        pendo.track("pipeline_parsed", {
+          promptLength: prompt.length,
+          nodeCount: pipeline.nodes.length,
+          edgeCount: pipeline.edges.length,
+          confidence: data.confidence,
+          pipelineName: (pipeline.name || "").substring(0, 50),
+          reasoning: (data.reasoning || "").substring(0, 200),
+        });
+      }
     } catch (err: unknown) {
       set({
         parseStatus: "error",
         parseError: err instanceof Error ? err.message : "Parse failed",
       });
+
+      if (typeof window !== "undefined" && typeof pendo !== "undefined") {
+        pendo.track("pipeline_parse_failed", {
+          promptLength: prompt.length,
+          errorMessage: (err instanceof Error ? err.message : "Parse failed").substring(0, 100),
+        });
+      }
     }
   },
 

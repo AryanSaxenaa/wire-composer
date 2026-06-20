@@ -66,6 +66,17 @@ export function NodeContextMenu({ nodeId, x, y, onClose }: NodeContextMenuProps)
       output: undefined,
       error: undefined,
     });
+
+    if (typeof pendo !== "undefined") {
+      pendo.track("pipeline_node_duplicated", {
+        pipelineId: pipeline?.id,
+        sourceNodeId: node.id,
+        actionId: node.actionId,
+        platform: node.platform,
+        nodeLabel: (node.label || "").substring(0, 50),
+      });
+    }
+
     onClose();
   };
 

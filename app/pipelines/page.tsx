@@ -40,6 +40,7 @@ export default function PipelinesPage() {
   }, []);
 
   const handleDelete = async (id: string) => {
+    const deletedPipeline = pipelines.find((x) => x.id === id);
     try {
       const res = await fetch(`/api/pipelines/${id}`, { method: "DELETE" });
       if (!res.ok) {
@@ -48,6 +49,16 @@ export default function PipelinesPage() {
         return;
       }
       setPipelines((p) => p.filter((x) => x.id !== id));
+
+      if (typeof pendo !== "undefined" && deletedPipeline) {
+        pendo.track("pipeline_deleted", {
+          pipelineId: deletedPipeline.id,
+          pipelineName: (deletedPipeline.name || "").substring(0, 50),
+          nodeCount: deletedPipeline.nodes.length,
+          hadSchedule: !!deletedPipeline.schedule,
+          hadWebhook: !!deletedPipeline.webhookId,
+        });
+      }
     } catch {
       setError("Delete failed — check your connection");
     } finally {
